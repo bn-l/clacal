@@ -7,8 +7,6 @@ struct PopoverView: View {
         VStack(alignment: .leading, spacing: 12) {
             if let metrics = monitor.metrics {
                 MetricsView(metrics: metrics)
-                Divider()
-                HistoryView(monitor: monitor)
             } else if let error = monitor.lastError {
                 VStack(spacing: 8) {
                     Image(systemName: "exclamationmark.triangle")

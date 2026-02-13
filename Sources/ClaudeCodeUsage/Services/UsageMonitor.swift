@@ -9,7 +9,7 @@ private let logger = Logger(subsystem: "com.bml.claude-code-usage", category: "M
 final class UsageMonitor {
     var metrics: UsageMetrics? {
         didSet {
-            logger.trace("metrics updated: combinedPct=\(self.metrics?.combinedPct ?? -1, privacy: .public) sessionForecast=\(self.metrics?.sessionForecastPct ?? -1, privacy: .public) budgetUsed=\(self.metrics?.weeklyBudgetBurnPct ?? -1, privacy: .public)")
+            logger.trace("metrics updated: calibrator=\(self.metrics?.calibrator ?? -99, privacy: .public)")
         }
     }
     var lastError: String? {
@@ -23,45 +23,20 @@ final class UsageMonitor {
     }
     var isLoading = false
     var lastUpdated: Date?
-    var historyStore: HistoryStore?
-
-    var currentSnapshot: SessionSnapshot?
-    var previousSessionMinsLeft: Double?
-    var previousWeeklyMinsLeft: Double?
-    var previousPollTimestamp: Date?
     var config = AppConfig.load()
+
+    // internal(set) for test injection
+    var optimiser: UsageOptimiser?
 
     func manualPoll() async {
         logger.info("Manual poll triggered")
         await poll()
     }
 
-    func initializeFromStore() throws {
-        if historyStore == nil {
-            logger.debug("historyStore is nil, creating new instance")
-            historyStore = try HistoryStore()
-        }
-        currentSnapshot = try historyStore?.latestSessionStart()
-        if let state = try historyStore?.latestPollState() {
-            previousSessionMinsLeft = state.sessionMinsLeft
-            previousWeeklyMinsLeft = state.weeklyMinsLeft
-            previousPollTimestamp = state.timestamp
-        }
-        logger.info("HistoryStore initialized: hasExistingSnapshot=\(self.currentSnapshot != nil, privacy: .public) previousSessionMinsLeft=\(self.previousSessionMinsLeft ?? -1, privacy: .public) previousPollTimestamp=\(self.previousPollTimestamp?.description ?? "nil", privacy: .public)")
-        if let snap = currentSnapshot {
-            logger.info("Restored snapshot: weeklyUsagePctAtStart=\(snap.weeklyUsagePctAtStart, privacy: .public) weeklyMinsLeftAtStart=\(snap.weeklyMinsLeftAtStart, privacy: .public) timestamp=\(snap.timestamp, privacy: .public)")
-        }
-    }
-
     func startPolling() async {
-        logger.info("startPolling called: pollInterval=\(self.config.pollIntervalSeconds, privacy: .public)s defaultSessionsPerDay=\(self.config.defaultSessionsPerDay, privacy: .public)")
+        logger.info("startPolling: pollInterval=\(self.config.pollIntervalSeconds, privacy: .public)s")
 
-        do {
-            try initializeFromStore()
-        } catch {
-            lastError = "Database init failed: \(error.localizedDescription)"
-            logger.error("HistoryStore init failed: \(error.localizedDescription, privacy: .public)")
-        }
+        ensureOptimiser()
 
         logger.info("Starting initial poll")
         await poll()
@@ -83,115 +58,37 @@ final class UsageMonitor {
     ) {
         logger.debug("Raw values: sessionUsagePct=\(sessionUsagePct, privacy: .public) weeklyUsagePct=\(weeklyUsagePct, privacy: .public) sessionMinsLeft=\(sessionMinsLeft, privacy: .public) weeklyMinsLeft=\(weeklyMinsLeft, privacy: .public)")
 
-        // Session-reset detection via two signals (both restored from SQLite on launch):
-        // 1. Timer jumped up — session definitely reset
-        // 2. Enough wall-clock time elapsed that the old session must have expired
-        //    (handles app downtime where prev and current are both high)
-        let sessionExpired = if let prev = previousSessionMinsLeft,
-                                let prevTs = previousPollTimestamp {
-            Date() > prevTs.addingTimeInterval(prev * 60)
-        } else {
-            false
-        }
-        let timerJumped = if let prev = previousSessionMinsLeft {
-            sessionMinsLeft - prev > 30
-        } else {
-            false
-        }
-        if timerJumped || sessionExpired {
-            logger.info("Session reset detected: timerJumped=\(timerJumped, privacy: .public) sessionExpired=\(sessionExpired, privacy: .public) prevMins=\(self.previousSessionMinsLeft ?? -1, privacy: .public) currentMins=\(sessionMinsLeft, privacy: .public)")
-            let snap = SessionSnapshot(
-                weeklyUsagePctAtStart: weeklyUsagePct,
-                weeklyMinsLeftAtStart: weeklyMinsLeft,
-                timestamp: Date()
-            )
-            currentSnapshot = snap
-            do {
-                try historyStore?.saveSessionStart(snap)
-                logger.info("New session snapshot saved: weeklyUsagePct=\(weeklyUsagePct, privacy: .public) weeklyMinsLeft=\(weeklyMinsLeft, privacy: .public)")
-            } catch {
-                logger.error("Failed to save session start: \(error.localizedDescription, privacy: .public)")
-            }
-        }
+        ensureOptimiser()
 
-        // Weekly-reset detection: the weekly timer only counts down, so any
-        // significant increase vs the previous poll means the week reset.
-        // Compares with last poll (not snapshot) so it works even when the
-        // snapshot was captured early in the week (near 10080).
-        // Persisted via saveSessionStart so it survives app restarts.
-        if let prevWeekly = previousWeeklyMinsLeft,
-           weeklyMinsLeft - prevWeekly > 60 {
-            logger.info("Weekly reset detected: weeklyMinsLeft=\(weeklyMinsLeft, privacy: .public) prevWeekly=\(prevWeekly, privacy: .public) — re-baselining")
-            let snap = SessionSnapshot(
-                weeklyUsagePctAtStart: weeklyUsagePct,
-                weeklyMinsLeftAtStart: weeklyMinsLeft,
-                timestamp: Date()
-            )
-            currentSnapshot = snap
-            do {
-                try historyStore?.updateLatestSessionStart(snap)
-            } catch {
-                logger.error("Failed to save weekly re-baseline: \(error.localizedDescription, privacy: .public)")
-            }
-        }
+        let result = optimiser!.recordPoll(
+            sessionUsage: sessionUsagePct,
+            sessionRemaining: sessionMinsLeft,
+            weeklyUsage: weeklyUsagePct,
+            weeklyRemaining: weeklyMinsLeft
+        )
 
-        previousSessionMinsLeft = sessionMinsLeft
-        previousWeeklyMinsLeft = weeklyMinsLeft
-        previousPollTimestamp = Date()
-
-        // Bootstrap: need a snapshot to compute anything, but don't persist
-        // as a session start — we may be launching mid-session which would
-        // inflate expectedSessionsPerDay.
-        if currentSnapshot == nil {
-            logger.info("No existing snapshot, creating bootstrap: weeklyUsagePct=\(weeklyUsagePct, privacy: .public) weeklyMinsLeft=\(weeklyMinsLeft, privacy: .public)")
-            currentSnapshot = SessionSnapshot(
-                weeklyUsagePctAtStart: weeklyUsagePct,
-                weeklyMinsLeftAtStart: weeklyMinsLeft,
-                timestamp: Date()
-            )
-        }
-
-        let sessionsPerDay: Double
-        do {
-            if let observed = try historyStore?.expectedSessionsPerDay() {
-                sessionsPerDay = observed
-                logger.debug("Using observed sessionsPerDay=\(sessionsPerDay, privacy: .public)")
-            } else {
-                sessionsPerDay = Double(config.defaultSessionsPerDay)
-                logger.debug("Using config fallback sessionsPerDay=\(sessionsPerDay, privacy: .public) (no session data)")
-            }
-        } catch {
-            sessionsPerDay = Double(config.defaultSessionsPerDay)
-            logger.error("expectedSessionsPerDay query failed: \(error.localizedDescription, privacy: .public) — falling back to config default=\(sessionsPerDay, privacy: .public)")
-        }
-
-        let computed = UsageCalculator.compute(
+        metrics = UsageMetrics(
             sessionUsagePct: sessionUsagePct,
             weeklyUsagePct: weeklyUsagePct,
             sessionMinsLeft: sessionMinsLeft,
             weeklyMinsLeft: weeklyMinsLeft,
-            snapshot: currentSnapshot!,
-            sessionsPerDay: sessionsPerDay
+            calibrator: result.calibrator,
+            sessionTarget: result.target,
+            timestamp: Date()
         )
-
-        metrics = computed
         lastError = nil
         lastUpdated = Date()
 
-        do {
-            try historyStore?.saveSnapshot(computed)
-            logger.debug("Snapshot persisted to database")
-        } catch {
-            logger.error("Failed to persist snapshot: \(error.localizedDescription, privacy: .public)")
-        }
+        logger.info("Poll complete: calibrator=\(result.calibrator, privacy: .public) target=\(result.target, privacy: .public) optimalRate=\(result.optimalRate, privacy: .public)")
+    }
 
-        do {
-            try historyStore?.pruneOldRecords()
-        } catch {
-            logger.warning("Failed to prune old records: \(error.localizedDescription, privacy: .public)")
-        }
-
-        logger.info("Poll complete: combinedPct=\(computed.combinedPct, privacy: .public) sessionForecast=\(computed.sessionForecastPct, privacy: .public) budgetUsed=\(computed.weeklyBudgetBurnPct, privacy: .public) tier=\(String(describing: computed.colorTier), privacy: .public)")
+    private func ensureOptimiser() {
+        guard optimiser == nil else { return }
+        optimiser = UsageOptimiser(
+            data: DataStore.load(),
+            activeHoursPerDay: config.activeHoursPerDay,
+            persistURL: DataStore.defaultURL
+        )
     }
 
     private func poll() async {
@@ -255,17 +152,17 @@ final class UsageMonitor {
 // MARK: - Config
 
 struct AppConfig: Codable, Sendable {
-    var defaultSessionsPerDay: Int = 2
+    var activeHoursPerDay: [Double] = [10, 10, 10, 10, 10, 10, 10]
     var pollIntervalSeconds: Int = 300
 
-    init(defaultSessionsPerDay: Int = 2, pollIntervalSeconds: Int = 300) {
-        self.defaultSessionsPerDay = defaultSessionsPerDay
+    init(activeHoursPerDay: [Double] = [10, 10, 10, 10, 10, 10, 10], pollIntervalSeconds: Int = 300) {
+        self.activeHoursPerDay = activeHoursPerDay
         self.pollIntervalSeconds = pollIntervalSeconds
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        defaultSessionsPerDay = try container.decodeIfPresent(Int.self, forKey: .defaultSessionsPerDay) ?? 2
+        activeHoursPerDay = try container.decodeIfPresent([Double].self, forKey: .activeHoursPerDay) ?? [10, 10, 10, 10, 10, 10, 10]
         pollIntervalSeconds = try container.decodeIfPresent(Int.self, forKey: .pollIntervalSeconds) ?? 300
     }
 
@@ -289,7 +186,7 @@ struct AppConfig: Codable, Sendable {
             logger.error("Config file at \(path, privacy: .public) exists but failed to decode (\(data.count, privacy: .public) bytes) — using defaults")
             return AppConfig()
         }
-        logger.info("Config loaded: path=\(path, privacy: .public) defaultSessionsPerDay=\(config.defaultSessionsPerDay, privacy: .public) pollIntervalSeconds=\(config.pollIntervalSeconds, privacy: .public)")
+        logger.info("Config loaded: path=\(path, privacy: .public) activeHoursPerDay=\(config.activeHoursPerDay, privacy: .public) pollIntervalSeconds=\(config.pollIntervalSeconds, privacy: .public)")
         return config
     }
 }

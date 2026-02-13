@@ -2,7 +2,7 @@ import Foundation
 
 struct UsageWindow: Codable, Sendable {
     let utilization: Double
-    let resets_at: String
+    let resets_at: String?
 }
 
 struct UsageLimits: Codable, Sendable {

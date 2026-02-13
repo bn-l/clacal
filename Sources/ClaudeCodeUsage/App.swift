@@ -16,7 +16,7 @@ struct ClaudeCodeUsageApp: App {
         MenuBarExtra {
             PopoverView(monitor: monitor)
         } label: {
-            PieChartIcon(combinedPct: monitor.metrics?.combinedPct ?? 0)
+            CalibratorIcon(calibrator: monitor.metrics?.calibrator ?? 0)
                 .task {
                     guard ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil else {
                         logger.info("Running under test host — skipping polling")
