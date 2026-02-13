@@ -6,37 +6,23 @@ struct UsageMetrics: Sendable {
     let weeklyUsagePct: Double
     let sessionMinsLeft: Double
     let weeklyMinsLeft: Double
-    let sessionForecastPct: Double
-    let weeklyBudgetBurnPct: Double
-    let combinedPct: Double
+    let calibrator: Double
+    let sessionTarget: Double
     let timestamp: Date
 
-    var colorTier: ColorTier { ColorTier(combinedPct: combinedPct) }
+    var color: Color { UsageColor.fromCalibrator(calibrator) }
+    var cgColor: CGColor { NSColor(color).cgColor }
 }
 
-enum ColorTier: Sendable {
-    case red, orange, blue, purple, green
-
-    init(combinedPct: Double) {
-        switch combinedPct {
-        case ...20:  self = .red
-        case ...50:  self = .orange
-        case ...70:  self = .blue
-        case ...90:  self = .purple
-        default:     self = .green
-        }
+enum UsageColor: Sendable {
+    /// Green at magnitude 0 (on pace), red at magnitude 1 (max deviation)
+    static func fromCalibrator(_ calibrator: Double) -> Color {
+        let magnitude = min(max(abs(calibrator), 0), 1)
+        let hue = (1 - magnitude) * (120.0 / 360.0)
+        return Color(hue: hue, saturation: 0.6, brightness: 0.925)
     }
 
-    var color: Color {
-        switch self {
-        // case .red:    Color(red: 252 / 255, green: 165 / 255, blue: 165 / 255)
-        case .red:    Color(red: 252 / 255, green: 78 / 255, blue: 78 / 255)
-        case .orange: Color(red: 254 / 255, green: 188 / 255, blue: 122 / 255)
-        case .blue:   Color(red: 129 / 255, green: 210 / 255, blue: 253 / 255)
-        case .purple: Color(red: 196 / 255, green: 181 / 255, blue: 253 / 255)
-        case .green:  Color(red: 187 / 255, green: 247 / 255, blue: 208 / 255)
-        }
+    static func cgColorFromCalibrator(_ calibrator: Double) -> CGColor {
+        NSColor(fromCalibrator(calibrator)).cgColor
     }
-
-    var cgColor: CGColor { NSColor(color).cgColor }
 }

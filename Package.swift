@@ -5,21 +5,16 @@ import PackageDescription
 let package = Package(
     name: "ClaudeCodeUsage",
     platforms: [.macOS(.v15)],
-    dependencies: [
-        .package(url: "https://github.com/groue/GRDB.swift", from: "7.9.0"),
-    ],
+    dependencies: [],
     targets: [
         .executableTarget(
             name: "ClaudeCodeUsage",
-            dependencies: [
-                .product(name: "GRDB", package: "GRDB.swift"),
-            ]
+            dependencies: []
         ),
         .testTarget(
             name: "ClaudeCodeUsageTests",
             dependencies: [
                 "ClaudeCodeUsage",
-                .product(name: "GRDB", package: "GRDB.swift"),
             ]
         ),
     ]
