@@ -471,7 +471,7 @@ final class UsageOptimiser {
         // let expected = dailyAllotment * elapsedFrac
         // let raw = (dailyDelta - expected) / dailyAllotment
 
-        let raw = dailyDelta / dailyAllotment
+        let raw = dailyDelta / dailyAllotment - 1
         return min(max(raw, -1), 1)
     }
 
