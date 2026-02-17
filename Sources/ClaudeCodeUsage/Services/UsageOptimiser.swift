@@ -147,10 +147,10 @@ final class UsageOptimiser {
         guard poll.weeklyRemaining > 0 else { return 0 }
 
         let expected = weeklyExpected(poll)
-        let positional = (expected - poll.weeklyUsage) / 100
+        let positional = (poll.weeklyUsage - expected) / 100
 
         if let projected = weeklyProjected(poll) {
-            let velocityDeviation = (100 - projected) / 100
+            let velocityDeviation = (projected - 100) / 100
             let raw = 0.5 * positional + 0.5 * velocityDeviation
             return tanh(2 * raw)
         }
@@ -207,7 +207,7 @@ final class UsageOptimiser {
     // MARK: - Stage 2: Session Target & Budget
 
     private func sessionTarget(_ deviation: Double) -> Double {
-        100 * max(0.1, min(1, 1 + deviation))
+        100 * max(0.1, min(1, 1 - deviation))
     }
 
     private func sessionBudget(_ poll: Poll) -> Double? {
@@ -260,7 +260,7 @@ final class UsageOptimiser {
 
         // Blend: session error (weighted by time remaining) + weekly deviation
         let sFrac = poll.sessionRemaining / Self.sessionMinutes
-        let raw = max(-1.0, min(1.0, sFrac * sessionError + (1 - sFrac) * (-deviation)))
+        let raw = max(-1.0, min(1.0, sFrac * sessionError + (1 - sFrac) * deviation))
 
         // Dead zone — suppress small signals
         let dz: Double
