@@ -17,9 +17,16 @@ struct SessionStart: Codable, Sendable {
     let weeklyRemaining: Double
 }
 
+struct DailySnapshot: Codable, Sendable {
+    let date: Date
+    let weeklyUsagePct: Double
+    let weeklyMinsLeft: Double
+}
+
 struct StoreData: Codable, Sendable {
     var polls: [Poll] = []
     var sessions: [SessionStart] = []
+    var dailySnapshot: DailySnapshot?
 }
 
 enum DataStore {

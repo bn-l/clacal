@@ -16,6 +16,8 @@ struct OptimiserResult: Sendable {
     let exchangeRate: Double?
     let sessionBudget: Double?
     let isNewSession: Bool
+    let sessionUtilRatio: Double
+    let dailyAllotmentRatio: Double
 }
 
 @MainActor
@@ -34,8 +36,11 @@ final class UsageOptimiser {
     private static let windowDetectionMinPolls = 3
     private static let windowDetectionDaysRequired: Double = 7
 
+    private static let dayResetHour = 5 // 5am local time
+
     private(set) var polls: [Poll]
     private(set) var sessionStarts: [SessionStart]
+    private(set) var dailySnapshot: DailySnapshot?
     private var detectedWindows: [(start: Double, end: Double)]
     private let persistURL: URL?
     private var pacingZone: PacingZone = .ok
@@ -48,6 +53,7 @@ final class UsageOptimiser {
     ) {
         self.polls = data.polls
         self.sessionStarts = data.sessions
+        self.dailySnapshot = data.dailySnapshot
         self.persistURL = persistURL
         self.detectedWindows = activeHoursPerDay.map { hours in
             (start: 10.0, end: min(10.0 + hours, 24.0))
@@ -87,6 +93,7 @@ final class UsageOptimiser {
         polls.append(poll)
         pruneOldRecords()
         maybeUpdateDetectedWindows()
+        maybeUpdateDailySnapshot(poll)
 
         let deviation = weeklyDeviation(poll)
         let target = sessionTarget(deviation)
@@ -94,10 +101,12 @@ final class UsageOptimiser {
         let optimal = optimalRate(poll, target: target, budget: budget)
         let velocity = sessionVelocity()
         let cal = calibrator(deviation: deviation, target: target, poll: poll)
+        let sUtil = sessionUtilRatio(poll)
+        let dAllot = dailyAllotmentRatio(poll)
 
         persist()
 
-        logger.info("Poll recorded: calibrator=\(cal, privacy: .public) target=\(target, privacy: .public) optimalRate=\(optimal, privacy: .public) weeklyDev=\(deviation, privacy: .public) newSession=\(isNewSession, privacy: .public)")
+        logger.info("Poll recorded: calibrator=\(cal, privacy: .public) target=\(target, privacy: .public) optimalRate=\(optimal, privacy: .public) weeklyDev=\(deviation, privacy: .public) sessionUtil=\(sUtil, privacy: .public) dailyAllot=\(dAllot, privacy: .public) newSession=\(isNewSession, privacy: .public)")
 
         return OptimiserResult(
             calibrator: cal,
@@ -107,7 +116,9 @@ final class UsageOptimiser {
             weeklyDeviation: deviation,
             exchangeRate: exchangeRate(),
             sessionBudget: budget,
-            isNewSession: isNewSession
+            isNewSession: isNewSession,
+            sessionUtilRatio: sUtil,
+            dailyAllotmentRatio: dAllot
         )
     }
 
@@ -247,21 +258,21 @@ final class UsageOptimiser {
 
         // Dead zone — suppress small signals
         let dz: Double
-        if abs(raw) < 0.08 {
+        if abs(raw) < 0.05 {
             dz = 0
         } else {
             let sign: Double = raw > 0 ? 1 : -1
-            dz = sign * (abs(raw) - 0.08) / 0.92
+            dz = sign * (abs(raw) - 0.05) / 0.95
         }
 
         // Hysteresis — prevent oscillation at zone boundaries
         let hz: Double
         switch pacingZone {
         case .ok:
-            if dz > 0.15 {
+            if dz > 0.12 {
                 pacingZone = .fast
                 hz = dz
-            } else if dz < -0.15 {
+            } else if dz < -0.12 {
                 pacingZone = .slow
                 hz = dz
             } else {
@@ -284,7 +295,7 @@ final class UsageOptimiser {
         }
 
         // Smoothing — slew-rate limit for stable display
-        let output = 0.15 * hz + 0.85 * prevCalOutput
+        let output = 0.25 * hz + 0.75 * prevCalOutput
         prevCalOutput = output
         return max(-1, min(1, output))
     }
@@ -408,6 +419,52 @@ final class UsageOptimiser {
         }
     }
 
+    // MARK: - Daily Snapshot & Ratios
+
+    private func maybeUpdateDailySnapshot(_ poll: Poll) {
+        let calendar = Calendar.current
+        let boundary = dayBoundary(for: poll.timestamp, calendar: calendar)
+
+        if let existing = dailySnapshot {
+            let existingBoundary = dayBoundary(for: existing.date, calendar: calendar)
+            let weeklyReset = !polls.isEmpty && poll.weeklyRemaining - (polls[polls.count - 2].weeklyRemaining) > 60
+            guard boundary > existingBoundary || weeklyReset else { return }
+        }
+
+        dailySnapshot = DailySnapshot(
+            date: poll.timestamp,
+            weeklyUsagePct: poll.weeklyUsage,
+            weeklyMinsLeft: poll.weeklyRemaining
+        )
+        logger.info("Daily snapshot captured: weeklyUsage=\(poll.weeklyUsage, privacy: .public) weeklyMinsLeft=\(poll.weeklyRemaining, privacy: .public)")
+    }
+
+    private func dayBoundary(for date: Date, calendar: Calendar) -> Date {
+        let hour = calendar.component(.hour, from: date)
+        let startOfDay = calendar.startOfDay(for: date)
+        let boundary = startOfDay.addingTimeInterval(Double(Self.dayResetHour) * 3600)
+        return hour < Self.dayResetHour
+            ? boundary.addingTimeInterval(-86400)
+            : boundary
+    }
+
+    private func sessionUtilRatio(_ poll: Poll) -> Double {
+        let elapsed = Self.sessionMinutes - poll.sessionRemaining
+        guard elapsed > 0 else { return 0 }
+        let elapsedFrac = elapsed / Self.sessionMinutes
+        let ratio = (poll.sessionUsage / 100) / elapsedFrac
+        return min(max(ratio, 0), 1)
+    }
+
+    private func dailyAllotmentRatio(_ poll: Poll) -> Double {
+        guard let snapshot = dailySnapshot else { return 0 }
+        let dailyDelta = max(poll.weeklyUsage - snapshot.weeklyUsagePct, 0)
+        let daysRemaining = max(snapshot.weeklyMinsLeft / 1440.0, 0.01)
+        let dailyAllotment = max(100 - snapshot.weeklyUsagePct, 0) / daysRemaining
+        guard dailyAllotment > 0.01 else { return 0 }
+        return min(max(dailyDelta / dailyAllotment, 0), 1)
+    }
+
     // MARK: - Persistence & Housekeeping
 
     private func dataWeeks() -> Double {
@@ -424,6 +481,6 @@ final class UsageOptimiser {
 
     private func persist() {
         guard let url = persistURL else { return }
-        DataStore.save(StoreData(polls: polls, sessions: sessionStarts), to: url)
+        DataStore.save(StoreData(polls: polls, sessions: sessionStarts, dailySnapshot: dailySnapshot), to: url)
     }
 }
