@@ -239,7 +239,7 @@ Active hours define when you're expected to be using Claude, used for projecting
 Set from config (default: 10:00–20:00 every day = 10h/day):
 
 ```json
-// ~/.config/claude-code-usage/config.json
+// ~/.config/clacal/config.json
 {
   "activeHoursPerDay": [10, 10, 10, 10, 10, 10, 10]
 }
@@ -276,7 +276,7 @@ The color is symmetric — consuming too fast and too slowly both shift toward r
 
 ## Data Management
 
-- **Storage**: `~/.config/claude-code-usage/usage_data.json` — JSON with `polls[]` and `sessions[]`, dates as seconds-since-epoch
+- **Storage**: `~/.config/clacal/usage_data.json` — JSON with `polls[]` and `sessions[]`, dates as seconds-since-epoch
 - **Pruning**: Records older than 90 days are discarded after every poll
 - **Persistence**: Written atomically after every `recordPoll` call
 
