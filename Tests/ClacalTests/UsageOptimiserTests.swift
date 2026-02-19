@@ -178,26 +178,26 @@ struct OptimiserWeeklyDeviationTests {
         #expect(abs(result.weeklyDeviation) < 1)
     }
 
-    @Test("Far behind schedule: positive deviation")
+    @Test("Far behind schedule: negative deviation (under-using)")
     func behindSchedule() {
         let opt = makeTestOptimiser()
-        // Week almost over (1 day left) but only 10% used
+        // Week almost over (1 day left) but only 10% used — under-pacing
         let result = opt.recordPoll(
             sessionUsage: 5, sessionRemaining: 280,
             weeklyUsage: 10, weeklyRemaining: 1440
         )
-        #expect(result.weeklyDeviation > 0)
+        #expect(result.weeklyDeviation < 0)
     }
 
-    @Test("Far ahead of schedule: negative deviation")
+    @Test("Far ahead of schedule: positive deviation (over-using)")
     func aheadOfSchedule() {
         let opt = makeTestOptimiser()
-        // Early in week (6 days left) but already 90% used
+        // Early in week (6 days left) but already 90% used — over-pacing
         let result = opt.recordPoll(
             sessionUsage: 50, sessionRemaining: 200,
             weeklyUsage: 90, weeklyRemaining: 8640
         )
-        #expect(result.weeklyDeviation < 0)
+        #expect(result.weeklyDeviation > 0)
     }
 
     @Test("Deviation is bounded [-1, 1] via tanh")
@@ -333,23 +333,23 @@ struct OptimiserCalibratorTests {
     @Test("Idle user with headroom: negative calibrator (under-using)")
     func idleWithHeadroom() {
         let now = Date()
-        let sessionStart = now.addingTimeInterval(-1800) // 30 min ago
+        let sessionStart = now.addingTimeInterval(-120 * 60) // 120 min ago
         let data = makeStoreData(
             polls: [
-                (sessionStart, 0, 300, 20, 8000),
-                (sessionStart.addingTimeInterval(300), 0, 295, 20, 7995),
-                (sessionStart.addingTimeInterval(600), 0, 290, 20, 7990),
+                (sessionStart, 0, 300, 50, 5040),
+                (sessionStart.addingTimeInterval(300), 0, 295, 50, 5035),
+                (sessionStart.addingTimeInterval(600), 0, 290, 50, 5030),
             ],
-            sessions: [(sessionStart, 20, 8000)]
+            sessions: [(sessionStart, 50, 5040)]
         )
         let opt = makeTestOptimiser(data: data)
 
         let result = opt.recordPoll(
-            sessionUsage: 0, sessionRemaining: 270,
-            weeklyUsage: 20, weeklyRemaining: 7970,
+            sessionUsage: 0, sessionRemaining: 180,
+            weeklyUsage: 50, weeklyRemaining: 4920,
             timestamp: now
         )
-        // Idle (velocity ~0) but optimal rate > 0 → negative calibrator (under-using)
+        // 120 min idle → strong negative signal that overcomes dead zone + hysteresis
         #expect(result.calibrator < 0)
     }
 }
@@ -562,33 +562,26 @@ struct OptimiserPruningTests {
 @MainActor
 struct OptimiserScenarioTests {
 
-    @Test("Fresh session, behind on weekly: velocity exceeds optimal rate")
-    func behindOnWeekly() {
-        let opt = makeTestOptimiser()
-
-        // Simulate a few polls to get past the 5-min early-session guard
+    @Test("Session over-pacing with neutral weekly: positive calibrator")
+    func sessionOverPacing() {
         let now = Date()
-        _ = opt.recordPoll(
-            sessionUsage: 0, sessionRemaining: 300,
-            weeklyUsage: 10, weeklyRemaining: 1440,
-            timestamp: now
+        let sessionStart = now.addingTimeInterval(-60 * 60) // 60 min ago
+        let data = makeStoreData(
+            polls: [
+                (sessionStart, 0, 300, 50, 5040),
+                (sessionStart.addingTimeInterval(300), 8, 295, 50, 5035),
+                (sessionStart.addingTimeInterval(600), 16, 290, 50.1, 5030),
+            ],
+            sessions: [(sessionStart, 50, 5040)]
         )
-        for i in 1...5 {
-            _ = opt.recordPoll(
-                sessionUsage: Double(i) * 2, sessionRemaining: 300 - Double(i) * 5,
-                weeklyUsage: 10 + Double(i) * 0.1, weeklyRemaining: 1440 - Double(i) * 5,
-                timestamp: now.addingTimeInterval(Double(i) * 300)
-            )
-        }
+        let opt = makeTestOptimiser(data: data)
 
         let result = opt.recordPoll(
-            sessionUsage: 14, sessionRemaining: 265,
-            weeklyUsage: 10.7, weeklyRemaining: 1405,
-            timestamp: now.addingTimeInterval(2100)
+            sessionUsage: 40, sessionRemaining: 240,
+            weeklyUsage: 50.3, weeklyRemaining: 4980,
+            timestamp: now
         )
-        // Far behind on weekly (only 10% used with 1 day left) → target 100
-        // But velocity (~0.4 %/min) exceeds optimal (~0.325 %/min) → positive (over-using)
-        #expect(result.target == 100)
+        // 60 min in, already 40% session usage (expected ~20%) → positive calibrator
         #expect(result.calibrator > 0)
     }
 
@@ -600,8 +593,8 @@ struct OptimiserScenarioTests {
             sessionUsage: 72, sessionRemaining: 180,
             weeklyUsage: 58, weeklyRemaining: 6500
         )
-        // Well ahead of schedule — deviation should be negative
-        #expect(result.weeklyDeviation < 0)
+        // Well ahead of schedule (over-using) — positive deviation
+        #expect(result.weeklyDeviation > 0)
         // Target should be less than 100
         #expect(result.target < 100)
     }
@@ -630,5 +623,81 @@ struct OptimiserScenarioTests {
         )
         // Far ahead → target reduced, velocity exceeds optimal → positive calibrator (over-using)
         #expect(result.calibrator > 0)
+    }
+}
+
+// MARK: - Session Deviation Boost
+
+@Suite("UsageOptimiser — Session Deviation Boost")
+@MainActor
+struct OptimiserSessionDeviationBoostTests {
+
+    @Test("Positive error at high usage is amplified")
+    func positiveErrorAmplifiedAtHighUsage() {
+        let opt = makeTestOptimiser()
+        // 240 min into 300-min session, usage at 85% (above linear pace of ~80%)
+        let result = opt.recordPoll(
+            sessionUsage: 85, sessionRemaining: 60,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+        // Raw session error ≈ 0.25, boost at 85% (3.6x) → ~0.9
+        #expect(result.sessionDeviation > 0.5)
+    }
+
+    @Test("Positive error at low usage has minimal boost")
+    func positiveErrorMinimalBoostAtLowUsage() {
+        let opt = makeTestOptimiser()
+        // 100 min into session, usage 40% (above linear pace of ~33%)
+        let result = opt.recordPoll(
+            sessionUsage: 40, sessionRemaining: 200,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+        // Low usage → ~1.2x boost, deviation should be modest
+        #expect(result.sessionDeviation > 0)
+        #expect(result.sessionDeviation < 0.5)
+    }
+
+    @Test("Negative error is not amplified regardless of usage")
+    func negativeErrorNotAmplified() {
+        let opt = makeTestOptimiser()
+        // 240 min in, usage at 60% (below linear pace of ~80%)
+        let result = opt.recordPoll(
+            sessionUsage: 60, sessionRemaining: 60,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+        // Under-pacing → negative error, no boost applied
+        #expect(result.sessionDeviation < 0)
+    }
+
+    @Test("Session deviation bounded [-1, 1] even with extreme boost")
+    func boundedWithExtremeBoost() {
+        let opt = makeTestOptimiser()
+        // 270 min in, usage at 98% — extreme over-pacing triggers max boost
+        let result = opt.recordPoll(
+            sessionUsage: 98, sessionRemaining: 30,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+        #expect(result.sessionDeviation >= -1)
+        #expect(result.sessionDeviation <= 1)
+    }
+
+    @Test("Higher usage amplifies positive deviation more than lower usage")
+    func boostScalesWithUsage() {
+        // Moderate over-pacing at 55% usage
+        let opt1 = makeTestOptimiser()
+        let r1 = opt1.recordPoll(
+            sessionUsage: 55, sessionRemaining: 150,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+
+        // Stronger over-pacing at 85% usage
+        let opt2 = makeTestOptimiser()
+        let r2 = opt2.recordPoll(
+            sessionUsage: 85, sessionRemaining: 60,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+
+        #expect(r1.sessionDeviation > 0)
+        #expect(r2.sessionDeviation > r1.sessionDeviation)
     }
 }

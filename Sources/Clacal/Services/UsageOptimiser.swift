@@ -102,7 +102,12 @@ final class UsageOptimiser {
         let velocity = sessionVelocity()
         let sError = sessionError(poll, target: target)
         let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
-        let sDev = min(max(sError, -1), 1)
+        // Amplify positive session error as usage approaches 100% (dual bar only)
+        let usageFrac = min(poll.sessionUsage / 100.0, 1.0)
+        let sBoosted = sError > 0
+            ? sError / max(1.0 - usageFrac * usageFrac, 0.2)
+            : sError
+        let sDev = min(max(sBoosted, -1), 1)
         let dDev = dailyDeviation(poll)
 
         persist()
