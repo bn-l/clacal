@@ -21,6 +21,7 @@ struct ClacalApp: App {
                 sessionDeviation: monitor.metrics?.sessionDeviation ?? 0,
                 dailyDeviation: monitor.metrics?.dailyDeviation ?? 0,
                 displayMode: monitor.displayMode,
+                isSessionActive: monitor.metrics?.isSessionActive ?? true,
                 hasError: monitor.hasError
             )
                 .task {

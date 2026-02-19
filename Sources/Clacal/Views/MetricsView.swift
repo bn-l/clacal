@@ -5,19 +5,21 @@ struct MetricsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            DeviationRow(
-                label: "Pace",
-                value: metrics.calibrator,
-                positiveLabel: "Ease off",
-                negativeLabel: "Use more"
-            )
+            if metrics.isSessionActive {
+                DeviationRow(
+                    label: "Pace",
+                    value: metrics.calibrator,
+                    positiveLabel: "Ease off",
+                    negativeLabel: "Use more"
+                )
 
-            DeviationRow(
-                label: "Session Pace",
-                value: metrics.sessionDeviation,
-                positiveLabel: "Ahead",
-                negativeLabel: "Behind"
-            )
+                DeviationRow(
+                    label: "Session Pace",
+                    value: metrics.sessionDeviation,
+                    positiveLabel: "Ahead",
+                    negativeLabel: "Behind"
+                )
+            }
 
             DeviationRow(
                 label: "Weekly Pace",
@@ -33,15 +35,15 @@ struct MetricsView: View {
                 negativeLabel: "Under"
             )
 
-            // Session
-            GaugeRow(
-                label: "Session",
-                value: metrics.sessionUsagePct,
-                elapsedPct: metrics.sessionElapsedPct,
-                detail: "\(formatMinutes(metrics.sessionMinsLeft)) left \u{2022} target \(Int(metrics.sessionTarget))%"
-            )
+            if metrics.isSessionActive {
+                GaugeRow(
+                    label: "Session",
+                    value: metrics.sessionUsagePct,
+                    elapsedPct: metrics.sessionElapsedPct,
+                    detail: "\(formatMinutes(metrics.sessionMinsLeft)) left \u{2022} target \(Int(metrics.sessionTarget))%"
+                )
+            }
 
-            // Weekly
             GaugeRow(
                 label: "Weekly",
                 value: metrics.weeklyUsagePct,

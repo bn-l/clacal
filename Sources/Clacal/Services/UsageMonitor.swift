@@ -71,7 +71,8 @@ final class UsageMonitor {
         sessionUsagePct: Double,
         weeklyUsagePct: Double,
         sessionMinsLeft: Double,
-        weeklyMinsLeft: Double
+        weeklyMinsLeft: Double,
+        isSessionActive: Bool = true
     ) {
         logger.debug("Raw values: sessionUsagePct=\(sessionUsagePct, privacy: .public) weeklyUsagePct=\(weeklyUsagePct, privacy: .public) sessionMinsLeft=\(sessionMinsLeft, privacy: .public) weeklyMinsLeft=\(weeklyMinsLeft, privacy: .public)")
 
@@ -96,6 +97,7 @@ final class UsageMonitor {
             weeklyDeviation: result.weeklyDeviation,
             sessionElapsedPct: (UsageOptimiser.sessionMinutes - sessionMinsLeft) / UsageOptimiser.sessionMinutes * 100,
             weeklyElapsedPct: (UsageOptimiser.weekMinutes - weeklyMinsLeft) / UsageOptimiser.weekMinutes * 100,
+            isSessionActive: isSessionActive,
             timestamp: Date()
         )
         errors.removeAll()
@@ -145,7 +147,8 @@ final class UsageMonitor {
                 sessionUsagePct: response.five_hour?.utilization ?? 0,
                 weeklyUsagePct: response.seven_day?.utilization ?? 0,
                 sessionMinsLeft: minutesUntil(response.five_hour?.resets_at),
-                weeklyMinsLeft: minutesUntil(response.seven_day?.resets_at)
+                weeklyMinsLeft: minutesUntil(response.seven_day?.resets_at),
+                isSessionActive: response.five_hour != nil
             )
         } catch {
             appendError(error.localizedDescription)

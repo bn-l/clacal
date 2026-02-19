@@ -9,6 +9,7 @@ struct CalibratorIcon: View {
     let sessionDeviation: Double
     let dailyDeviation: Double
     let displayMode: MenuBarDisplayMode
+    var isSessionActive = true
     var hasError = false
 
     var body: some View {
@@ -72,12 +73,14 @@ struct CalibratorIcon: View {
             }
 
             // Left bar — session deviation (positive = over-pacing, negative = under)
-            let sClamped = max(-1, min(1, sessionDeviation))
-            let sHeight = CGFloat(abs(sClamped)) * maxExtent
-            if sHeight > 0.5 {
-                ctx.setFillColor(UsageColor.cgColorFromCalibrator(sClamped))
-                let barY: CGFloat = sClamped >= 0 ? centerY : centerY - sHeight
-                ctx.fill(CGRect(x: 0, y: barY, width: barWidth, height: sHeight))
+            if isSessionActive {
+                let sClamped = max(-1, min(1, sessionDeviation))
+                let sHeight = CGFloat(abs(sClamped)) * maxExtent
+                if sHeight > 0.5 {
+                    ctx.setFillColor(UsageColor.cgColorFromCalibrator(sClamped))
+                    let barY: CGFloat = sClamped >= 0 ? centerY : centerY - sHeight
+                    ctx.fill(CGRect(x: 0, y: barY, width: barWidth, height: sHeight))
+                }
             }
 
             // Right bar — daily allotment deviation (positive = over budget, negative = under)
