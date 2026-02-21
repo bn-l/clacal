@@ -67,17 +67,17 @@ struct StatsView: View {
         }
     }
 
-    // MARK: - Hours Active
+    // MARK: - Usage (Active / Total)
 
     private var hoursActiveSection: some View {
-        statsSection("Hours Active", color: Self.hoursColor) {
+        statsSection("Usage (Active / Total)", color: Self.hoursColor) {
             VStack(spacing: 4) {
-                hoursRow("Today", value: stats.hoursToday, suffix: "h")
+                hoursRow("Today", pair: stats.hoursToday, suffix: "h")
                 if let avg = stats.hoursWeekAvg {
-                    hoursRow("Week avg", value: avg, suffix: "h/day")
+                    hoursRow("Week avg", pair: avg, suffix: "h/day")
                 }
                 if let avg = stats.hoursAllTimeAvg {
-                    hoursRow("All-time", value: avg, suffix: "h/day")
+                    hoursRow("All-time", pair: avg, suffix: "h/day")
                 }
             }
         }
@@ -131,13 +131,13 @@ struct StatsView: View {
         }
     }
 
-    private func hoursRow(_ label: String, value: Double, suffix: String) -> some View {
+    private func hoursRow(_ label: String, pair: UsageStats.HoursPair, suffix: String) -> some View {
         HStack {
             Text(label)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("\(String(format: "%.1f", value)) \(suffix)")
+            Text("\(String(format: "%.1f", pair.active)) / \(String(format: "%.1f", pair.total)) \(suffix)")
                 .font(.caption)
                 .fontWeight(.medium)
                 .monospacedDigit()

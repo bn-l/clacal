@@ -37,14 +37,21 @@ final class UsageOptimiser {
     private static let windowDetectionDaysRequired: Double = 7
 
     private static let dayResetHour = 5 // 5am local time
+    private static let idleGraceMinutes: Double = 30
+    private static let maxActivityDays = 365
 
     private(set) var polls: [Poll]
     private(set) var sessionStarts: [SessionStart]
     private(set) var dailySnapshot: DailySnapshot?
+    private(set) var dailyActivities: [DailyActivity]
     private var detectedWindows: [(start: Double, end: Double)]
     private let persistURL: URL?
     private var pacingZone: PacingZone = .ok
     private var prevCalOutput: Double = 0
+
+    // Idle tracking state
+    private var lastUsageGrowth: Date?
+    private var pendingGraceMinutes: Double = 0
 
     init(
         data: StoreData = StoreData(),
@@ -54,11 +61,21 @@ final class UsageOptimiser {
         self.polls = data.polls
         self.sessionStarts = data.sessions
         self.dailySnapshot = data.dailySnapshot
+        self.dailyActivities = data.dailyActivities
         self.persistURL = persistURL
         self.detectedWindows = activeHoursPerDay.map { hours in
             (start: 10.0, end: min(10.0 + hours, 24.0))
         }
-        logger.info("Optimiser init: polls=\(data.polls.count, privacy: .public) sessions=\(data.sessions.count, privacy: .public) persist=\(persistURL != nil, privacy: .public)")
+
+        // Derive lastUsageGrowth from existing polls
+        for i in stride(from: polls.count - 1, through: 1, by: -1) {
+            if polls[i].sessionUsage > polls[i - 1].sessionUsage {
+                lastUsageGrowth = polls[i].timestamp
+                break
+            }
+        }
+
+        logger.info("Optimiser init: polls=\(data.polls.count, privacy: .public) sessions=\(data.sessions.count, privacy: .public) activities=\(data.dailyActivities.count, privacy: .public) persist=\(persistURL != nil, privacy: .public)")
     }
 
     // MARK: - Public API
@@ -91,6 +108,7 @@ final class UsageOptimiser {
         }
 
         polls.append(poll)
+        trackActivity(poll, isNewSession: isNewSession)
         pruneOldRecords()
         maybeUpdateDetectedWindows()
         maybeUpdateDailySnapshot(poll)
@@ -484,30 +502,76 @@ final class UsageOptimiser {
         return min(max(raw, -1), 1)
     }
 
+    // MARK: - Idle Tracking
+
+    private func trackActivity(_ poll: Poll, isNewSession: Bool) {
+        let calendar = Calendar.current
+
+        // Reset on new session — commit pending as idle
+        if isNewSession {
+            if pendingGraceMinutes > 0 {
+                accumulateActivity(idleMinutes: pendingGraceMinutes, at: poll.timestamp, calendar: calendar)
+                pendingGraceMinutes = 0
+            }
+            lastUsageGrowth = nil
+            return
+        }
+
+        // Need at least 2 polls for interval tracking
+        guard polls.count >= 2 else { return }
+        let prevPoll = polls[polls.count - 2]
+
+        // Skip large gaps (app wasn't running)
+        let deltaMinutes = poll.timestamp.timeIntervalSince(prevPoll.timestamp) / 60
+        guard deltaMinutes > 0, deltaMinutes <= Self.gapThresholdMinutes else {
+            if pendingGraceMinutes > 0 {
+                accumulateActivity(idleMinutes: pendingGraceMinutes, at: poll.timestamp, calendar: calendar)
+                pendingGraceMinutes = 0
+            }
+            lastUsageGrowth = nil
+            return
+        }
+
+        let usageGrew = poll.sessionUsage > prevPoll.sessionUsage
+
+        if usageGrew {
+            // Growth resumed — pending grace minutes were active after all
+            accumulateActivity(activeMinutes: pendingGraceMinutes + deltaMinutes, at: poll.timestamp, calendar: calendar)
+            pendingGraceMinutes = 0
+            lastUsageGrowth = poll.timestamp
+        } else if let lastGrowth = lastUsageGrowth,
+                  poll.timestamp.timeIntervalSince(lastGrowth) / 60 < Self.idleGraceMinutes {
+            // Within grace period — buffer as uncertain
+            pendingGraceMinutes += deltaMinutes
+        } else {
+            // Grace expired or no prior growth — all pending + this interval is idle
+            accumulateActivity(idleMinutes: pendingGraceMinutes + deltaMinutes, at: poll.timestamp, calendar: calendar)
+            pendingGraceMinutes = 0
+            lastUsageGrowth = nil
+        }
+    }
+
+    private func accumulateActivity(activeMinutes: Double = 0, idleMinutes: Double = 0, at date: Date, calendar: Calendar) {
+        let boundary = dayBoundary(for: date, calendar: calendar)
+
+        if let index = dailyActivities.firstIndex(where: { dayBoundary(for: $0.date, calendar: calendar) == boundary }) {
+            dailyActivities[index].activeMinutes += activeMinutes
+            dailyActivities[index].idleMinutes += idleMinutes
+        } else {
+            dailyActivities.append(DailyActivity(
+                date: boundary,
+                activeMinutes: activeMinutes,
+                idleMinutes: idleMinutes
+            ))
+        }
+    }
+
     // MARK: - Stats
 
     func computeStats() -> UsageStats {
         let calendar = Calendar.current
         let now = Date()
         let todayBound = dayBoundary(for: now, calendar: calendar)
-
-        // Session durations: start → last poll of that session
-        var sessionDurations: [(start: Date, hours: Double)] = []
-        for i in 0..<sessionStarts.count {
-            let start = sessionStarts[i].timestamp
-            let nextStart = i + 1 < sessionStarts.count ? sessionStarts[i + 1].timestamp : nil
-
-            let lastPoll: Poll?
-            if let next = nextStart {
-                lastPoll = polls.last { $0.timestamp >= start && $0.timestamp < next }
-            } else {
-                lastPoll = polls.last { $0.timestamp >= start }
-            }
-
-            guard let end = lastPoll else { continue }
-            let hours = max(end.timestamp.timeIntervalSince(start), 0) / 3600
-            sessionDurations.append((start: start, hours: hours))
-        }
 
         // Avg session usage — peak usage of each *completed* session
         var sessionPeaks: [Double] = []
@@ -525,31 +589,34 @@ final class UsageOptimiser {
             ? nil
             : sessionPeaks.reduce(0, +) / Double(sessionPeaks.count)
 
-        // Hours today
-        let hoursToday = sessionDurations
-            .filter { $0.start >= todayBound }
-            .reduce(0.0) { $0 + $1.hours }
+        // Hours from daily activities
+        let todayEntry = dailyActivities.first { dayBoundary(for: $0.date, calendar: calendar) == todayBound }
+        let hoursToday = UsageStats.HoursPair(
+            active: (todayEntry?.activeMinutes ?? 0) / 60,
+            total: ((todayEntry?.activeMinutes ?? 0) + (todayEntry?.idleMinutes ?? 0)) / 60
+        )
 
-        // Hours — week average per day
-        let hoursWeekAvg: Double?
+        // Week average per day
+        let hoursWeekAvg: UsageStats.HoursPair?
         if let latest = polls.last {
             let weekElapsed = Self.weekMinutes - latest.weeklyRemaining
             let weekStart = latest.timestamp.addingTimeInterval(-weekElapsed * 60)
             let daysThisWeek = max(now.timeIntervalSince(weekStart) / 86400, 1)
-            let weekHours = sessionDurations
-                .filter { $0.start >= weekStart }
-                .reduce(0.0) { $0 + $1.hours }
-            hoursWeekAvg = weekHours / daysThisWeek
+            let weekEntries = dailyActivities.filter { $0.date >= weekStart }
+            let weekActive = weekEntries.reduce(0.0) { $0 + $1.activeMinutes } / 60
+            let weekTotal = weekEntries.reduce(0.0) { $0 + $1.activeMinutes + $1.idleMinutes } / 60
+            hoursWeekAvg = .init(active: weekActive / daysThisWeek, total: weekTotal / daysThisWeek)
         } else {
             hoursWeekAvg = nil
         }
 
-        // Hours — all-time average per day
-        let hoursAllTimeAvg: Double?
-        if let first = polls.first {
-            let totalDays = max(now.timeIntervalSince(first.timestamp) / 86400, 1)
-            let totalHours = sessionDurations.reduce(0.0) { $0 + $1.hours }
-            hoursAllTimeAvg = totalHours / totalDays
+        // All-time average per day
+        let hoursAllTimeAvg: UsageStats.HoursPair?
+        if let first = dailyActivities.first {
+            let totalDays = max(now.timeIntervalSince(first.date) / 86400, 1)
+            let allActive = dailyActivities.reduce(0.0) { $0 + $1.activeMinutes } / 60
+            let allTotal = dailyActivities.reduce(0.0) { $0 + $1.activeMinutes + $1.idleMinutes } / 60
+            hoursAllTimeAvg = .init(active: allActive / totalDays, total: allTotal / totalDays)
         } else {
             hoursAllTimeAvg = nil
         }
@@ -602,10 +669,13 @@ final class UsageOptimiser {
         let cutoff = latest.timestamp.addingTimeInterval(-Double(Self.maxDays) * 86400)
         polls.removeAll { $0.timestamp < cutoff }
         sessionStarts.removeAll { $0.timestamp < cutoff }
+
+        let activityCutoff = latest.timestamp.addingTimeInterval(-Double(Self.maxActivityDays) * 86400)
+        dailyActivities.removeAll { $0.date < activityCutoff }
     }
 
     private func persist() {
         guard let url = persistURL else { return }
-        DataStore.save(StoreData(polls: polls, sessions: sessionStarts, dailySnapshot: dailySnapshot), to: url)
+        DataStore.save(StoreData(polls: polls, sessions: sessionStarts, dailySnapshot: dailySnapshot, dailyActivities: dailyActivities), to: url)
     }
 }

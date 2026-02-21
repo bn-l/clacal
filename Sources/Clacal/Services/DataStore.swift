@@ -23,10 +23,32 @@ struct DailySnapshot: Codable, Sendable {
     let weeklyMinsLeft: Double
 }
 
+struct DailyActivity: Codable, Sendable {
+    let date: Date
+    var activeMinutes: Double
+    var idleMinutes: Double
+}
+
 struct StoreData: Codable, Sendable {
     var polls: [Poll] = []
     var sessions: [SessionStart] = []
     var dailySnapshot: DailySnapshot?
+    var dailyActivities: [DailyActivity] = []
+
+    init(polls: [Poll] = [], sessions: [SessionStart] = [], dailySnapshot: DailySnapshot? = nil, dailyActivities: [DailyActivity] = []) {
+        self.polls = polls
+        self.sessions = sessions
+        self.dailySnapshot = dailySnapshot
+        self.dailyActivities = dailyActivities
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        polls = try container.decodeIfPresent([Poll].self, forKey: .polls) ?? []
+        sessions = try container.decodeIfPresent([SessionStart].self, forKey: .sessions) ?? []
+        dailySnapshot = try container.decodeIfPresent(DailySnapshot.self, forKey: .dailySnapshot)
+        dailyActivities = try container.decodeIfPresent([DailyActivity].self, forKey: .dailyActivities) ?? []
+    }
 }
 
 enum DataStore {
