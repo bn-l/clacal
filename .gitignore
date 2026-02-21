@@ -27,3 +27,6 @@ zplansprev
 
 # Python
 __pycache__/
+
+# Claude related
+**/.claude
