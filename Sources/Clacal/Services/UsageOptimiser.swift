@@ -286,9 +286,11 @@ final class UsageOptimiser {
         let elapsed = Self.sessionMinutes - poll.sessionRemaining
         guard elapsed >= 5 else { return 0 }
 
-        // Blend: session error (weighted by time remaining) + weekly deviation
+        // Blend: session error + weekly deviation, with minimum weekly weight
+        // when deviation is extreme so a -100% weekly deficit isn't swallowed
         let sFrac = poll.sessionRemaining / Self.sessionMinutes
-        let raw = max(-1.0, min(1.0, sFrac * sessionError + (1 - sFrac) * deviation))
+        let wWeight = max(1 - sFrac, min(abs(deviation), 0.5))
+        let raw = max(-1.0, min(1.0, (1 - wWeight) * sessionError + wWeight * deviation))
 
         // Dead zone — suppress small signals
         let dz: Double
