@@ -34,12 +34,13 @@ run: app
 test:
     xcodebuild test -project Clacal.xcodeproj -scheme Clacal -destination 'platform=macOS,arch=arm64'
 
-# Clear all data from the database
+# Clear all data (legacy SQLite + active JSON store)
 clear-db:
     rm -f ~/.config/clacal/history.db
     rm -f ~/.config/clacal/history-v2.store
     rm -f ~/.config/clacal/history-v2.store-shm
     rm -f ~/.config/clacal/history-v2.store-wal
+    rm -f ~/.config/clacal/usage_data.json
 
 # Print version from Info.plist
 version:
