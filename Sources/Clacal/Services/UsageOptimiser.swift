@@ -63,7 +63,9 @@ final class UsageOptimiser {
         self.dailySnapshot = data.dailySnapshot
         self.dailyActivities = data.dailyActivities
         self.persistURL = persistURL
-        self.detectedWindows = activeHoursPerDay.map { hours in
+        // Normalise to exactly 7 entries (pad with 10h default, truncate excess)
+        let padded = (activeHoursPerDay + Array(repeating: 10.0, count: 7)).prefix(7)
+        self.detectedWindows = padded.map { hours in
             (start: 10.0, end: min(10.0 + hours, 24.0))
         }
 
@@ -120,14 +122,11 @@ final class UsageOptimiser {
         let velocity = sessionVelocity()
         let sError = sessionError(poll, target: target)
         let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
-        // Compress session error with tanh to prevent ±100% saturation,
-        // then boost positive side near 100% usage with exp(u⁸)
-        let usageFrac = min(poll.sessionUsage / 100.0, 1.0)
-        let sSmooth = tanh(sError)
-        let sBoosted = sSmooth > 0
-            ? sSmooth * exp(pow(usageFrac, 8))
-            : sSmooth
-        let sDev = min(max(sBoosted, -1), 1)
+        // Session deviation: clock-relative (usage% vs elapsed%)
+        let sessionElapsed = Self.sessionMinutes - poll.sessionRemaining
+        let sDev = sessionElapsed >= 5
+            ? tanh(2 * (poll.sessionUsage / 100 - sessionElapsed / Self.sessionMinutes))
+            : 0.0
         let dDev = dailyDeviation(poll)
 
         persist()
@@ -171,13 +170,22 @@ final class UsageOptimiser {
     private func weeklyDeviation(_ poll: Poll) -> Double {
         guard poll.weeklyRemaining > 0 else { return 0 }
 
+        let elapsedMinutes = Self.weekMinutes - poll.weeklyRemaining
+        let weekStart = poll.timestamp.addingTimeInterval(-elapsedMinutes * 60)
+        let weekEnd = poll.timestamp.addingTimeInterval(poll.weeklyRemaining * 60)
+        let activeElapsed = activeHoursInRange(from: weekStart, to: poll.timestamp)
+        let activeTotal = activeHoursInRange(from: weekStart, to: weekEnd)
+
         let expected = weeklyExpected(poll)
         let remainingFrac = max(poll.weeklyRemaining / Self.weekMinutes, 0.1)
         let positional = (poll.weeklyUsage - expected) / (100 * remainingFrac)
 
-        if let projected = weeklyProjected(poll) {
+        if let projected = weeklyProjected(poll), activeTotal > 0 {
             let velocityDeviation = (projected - 100) / 100
-            let raw = 0.5 * positional + 0.5 * velocityDeviation
+            // Confidence-gate velocity: weight by fraction of active week elapsed
+            let confidence = min(activeElapsed / activeTotal, 1)
+            let vWeight = 0.5 * confidence
+            let raw = (1 - vWeight) * positional + vWeight * velocityDeviation
             return tanh(2 * raw)
         }
         return tanh(2 * positional)
@@ -233,7 +241,7 @@ final class UsageOptimiser {
     // MARK: - Stage 2: Session Target & Budget
 
     private func sessionTarget(_ deviation: Double) -> Double {
-        100 * max(0.1, min(1, 1 - deviation))
+        100 * max(0.3, min(1, 1 - deviation))
     }
 
     private func sessionBudget(_ poll: Poll) -> Double? {
@@ -463,7 +471,8 @@ final class UsageOptimiser {
 
         if let existing = dailySnapshot {
             let existingBoundary = dayBoundary(for: existing.date, calendar: calendar)
-            let weeklyReset = !polls.isEmpty && poll.weeklyRemaining - (polls[polls.count - 2].weeklyRemaining) > 60
+            let weeklyReset = polls.count >= 2
+                && poll.weeklyRemaining - polls[polls.count - 2].weeklyRemaining > 60
             guard boundary > existingBoundary || weeklyReset else { return }
         }
 
