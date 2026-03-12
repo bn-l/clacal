@@ -156,7 +156,7 @@ final class UsageOptimiser {
 
         let timerJumped = poll.sessionRemaining - previous.sessionRemaining > Self.boundaryJumpMinutes
         let wallClockMinutes = poll.timestamp.timeIntervalSince(previous.timestamp) / 60
-        let sessionExpired = wallClockMinutes > previous.sessionRemaining
+        let sessionExpired = previous.sessionRemaining > 0 && wallClockMinutes > previous.sessionRemaining
 
         return timerJumped || sessionExpired
     }
@@ -596,7 +596,7 @@ final class UsageOptimiser {
                 .filter { $0.timestamp >= start && $0.timestamp < nextStart }
                 .map(\.sessionUsage)
                 .max()
-            if let peak { sessionPeaks.append(peak) }
+            if let peak, peak > 0 { sessionPeaks.append(peak) }
         }
         let avgSessionUsage = sessionPeaks.isEmpty
             ? nil
@@ -638,7 +638,7 @@ final class UsageOptimiser {
         var weeklyHistory: [UsageStats.WeeklyEntry] = []
         for i in 1..<polls.count {
             let jump = polls[i].weeklyRemaining - polls[i - 1].weeklyRemaining
-            if jump > 60 {
+            if jump > 60, polls[i - 1].weeklyRemaining > 0 {
                 let util = polls[i - 1].weeklyUsage
                 let elapsed = Self.weekMinutes - polls[i - 1].weeklyRemaining
                 let weekStart = polls[i - 1].timestamp.addingTimeInterval(-elapsed * 60)
