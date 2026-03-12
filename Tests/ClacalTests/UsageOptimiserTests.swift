@@ -713,6 +713,18 @@ struct OptimiserSessionDeviationBoostTests {
         #expect(result.sessionDeviation < 0)
     }
 
+    @Test("Late-session underuse stays close to elapsed progress gap")
+    func lateSessionUnderuseIsNotOverAmplified() {
+        let opt = makeTestOptimiser()
+        let result = opt.recordPoll(
+            sessionUsage: 91, sessionRemaining: 5,
+            weeklyUsage: 13, weeklyRemaining: 4025
+        )
+
+        #expect(result.sessionDeviation < 0)
+        #expect(result.sessionDeviation > -0.20)
+    }
+
     @Test("Session deviation bounded [-1, 1] even with extreme boost")
     func boundedWithExtremeBoost() {
         let opt = makeTestOptimiser()

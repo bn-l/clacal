@@ -122,23 +122,7 @@ final class UsageOptimiser {
         let velocity = sessionVelocity()
         let sError = sessionError(poll, target: target)
         let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
-        // Session deviation: clock-relative (usage% vs elapsed%)
-        let sDev: Double
-        if poll.sessionRemaining > 0 {
-            let sessionElapsed = Self.sessionMinutes - poll.sessionRemaining
-            if sessionElapsed >= 5 {
-                let u = poll.sessionUsage / 100
-                let remainingFrac = max(poll.sessionRemaining / Self.sessionMinutes, 0.1)
-                let raw = tanh((u - sessionElapsed / Self.sessionMinutes) / remainingFrac)
-                // Boost positive deviation at high usage: exp(u⁸) amplifies
-                // the over-pacing signal as the session budget is consumed
-                sDev = raw > 0 ? min(raw * exp(pow(u, 8)), 1) : raw
-            } else {
-                sDev = 0
-            }
-        } else {
-            sDev = 0
-        }
+        let sDev = sessionDeviation(poll)
         let dDev = dailyDeviation(poll)
 
         persist()
@@ -296,6 +280,31 @@ final class UsageOptimiser {
         let expectedUsage = target * (elapsed / Self.sessionMinutes)
         let remainingFrac = max(poll.sessionRemaining / Self.sessionMinutes, 0.1)
         return (poll.sessionUsage - expectedUsage) / max(target * remainingFrac, 1)
+    }
+
+    private func sessionDeviation(_ poll: Poll) -> Double {
+        guard poll.sessionRemaining > 0 else { return 0 }
+
+        let elapsedMinutes = Self.sessionMinutes - poll.sessionRemaining
+        guard elapsedMinutes >= 5 else { return 0 }
+
+        let usageFrac = poll.sessionUsage / 100
+        let elapsedFrac = elapsedMinutes / Self.sessionMinutes
+        let delta = usageFrac - elapsedFrac
+
+        // Behind pace: constant 2× keeps the reading stable across the whole
+        // session (no normalizer that blows up at either extreme).
+        // Ahead of pace: scale against remaining headroom so the over-pacing
+        // signal ramps up as the session budget runs out.
+        let raw: Double
+        if delta >= 0 {
+            let normalizer = max(poll.sessionRemaining / Self.sessionMinutes, 0.1)
+            raw = tanh(delta / normalizer)
+        } else {
+            raw = tanh(2 * delta)
+        }
+
+        return raw > 0 ? min(raw * exp(pow(usageFrac, 8)), 1) : raw
     }
 
     // MARK: - Stage 4: Calibrator (PB+Pipe)
