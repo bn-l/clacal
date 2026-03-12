@@ -123,10 +123,22 @@ final class UsageOptimiser {
         let sError = sessionError(poll, target: target)
         let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
         // Session deviation: clock-relative (usage% vs elapsed%)
-        let sessionElapsed = Self.sessionMinutes - poll.sessionRemaining
-        let sDev = sessionElapsed >= 5
-            ? tanh(2 * (poll.sessionUsage / 100 - sessionElapsed / Self.sessionMinutes))
-            : 0.0
+        let sDev: Double
+        if poll.sessionRemaining > 0 {
+            let sessionElapsed = Self.sessionMinutes - poll.sessionRemaining
+            if sessionElapsed >= 5 {
+                let u = poll.sessionUsage / 100
+                let remainingFrac = max(poll.sessionRemaining / Self.sessionMinutes, 0.1)
+                let raw = tanh((u - sessionElapsed / Self.sessionMinutes) / remainingFrac)
+                // Boost positive deviation at high usage: exp(u⁸) amplifies
+                // the over-pacing signal as the session budget is consumed
+                sDev = raw > 0 ? min(raw * exp(pow(u, 8)), 1) : raw
+            } else {
+                sDev = 0
+            }
+        } else {
+            sDev = 0
+        }
         let dDev = dailyDeviation(poll)
 
         persist()

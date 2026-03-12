@@ -562,7 +562,7 @@ struct OptimiserPruningTests {
 @MainActor
 struct OptimiserScenarioTests {
 
-    @Test("Session over-pacing with neutral weekly: positive calibrator")
+    @Test("Session over-pacing with neutral weekly: positive session deviation")
     func sessionOverPacing() {
         let now = Date()
         let sessionStart = now.addingTimeInterval(-60 * 60) // 60 min ago
@@ -581,8 +581,9 @@ struct OptimiserScenarioTests {
             weeklyUsage: 50.3, weeklyRemaining: 4980,
             timestamp: now
         )
-        // 60 min in, already 40% session usage (expected ~20%) → positive calibrator
-        #expect(result.calibrator > 0)
+        // 60 min in, already 40% session usage (expected ~20%) → positive session deviation
+        // sessionDeviation is independent of weekly blending / dead-zone / hysteresis
+        #expect(result.sessionDeviation > 0)
     }
 
     @Test("Running hot: ahead of schedule, target reduced")
