@@ -28,8 +28,8 @@ Anthropic API                           JSON Store (usage_data.json)
 |                              budgetRate)                   |
 |                                    |                       |
 |                                    v                       |
-|  Stage 4: calibrator ← (velocity - optimalRate)            |
-|                          / optimalRate                     |
+|  Stage 4: calibrator ← blend(sessionError, deviation)      |
+|           + dead zone + hysteresis + smoothing              |
 +------------------------------------------------------------+
                          |
                          v
@@ -66,7 +66,7 @@ On detection, a `SessionStart` is appended with the current `weeklyUsage` and `w
 
 *How far off-pace are you from ideal weekly consumption?*
 
-Produces a value in **[-1, 1]** via `tanh` compression. Positive = behind (should use more), negative = ahead (should ease off).
+Produces a value in **[-1, 1]** via `tanh` compression. Positive = ahead (should ease off), negative = behind (should use more).
 
 ### Expected Usage
 
@@ -109,21 +109,26 @@ projected       = weeklyUsage + averageRate * activeRemaining
 ### Combining Into Deviation
 
 ```
-positional        = (expected - weeklyUsage) / 100
-velocityDeviation = (100 - projected) / 100
+remainingFrac     = max(weeklyRemaining / weekMinutes, 0.1)
+positional        = (weeklyUsage - expected) / (100 * remainingFrac)
+velocityDeviation = (projected - 100) / 100
 
-         ┌ tanh(2 * (0.5 * positional + 0.5 * velocityDeviation))   if projected available
-deviation│
-         └ tanh(2 * positional)                                      otherwise
+if projected available:
+    confidence = min(activeElapsed / activeTotal, 1)
+    vWeight    = 0.5 * confidence
+    deviation  = tanh(2 * ((1 - vWeight) * positional + vWeight * velocityDeviation))
+else:
+    deviation  = tanh(2 * positional)
 ```
 
-The `tanh(2x)` squashes the raw signal into [-1, 1] with a gentle response near zero — small deviations don't cause the calibrator to flip-flop, while large deviations still saturate toward ±1.
+The `tanh(2x)` squashes the raw signal into [-1, 1] with a gentle response near zero — small deviations don't cause the calibrator to flip-flop, while large deviations still saturate toward ±1. The `remainingFrac` divisor in `positional` amplifies the signal late in the week, when small differences in actual vs expected matter more.
 
-Example: expected 40%, actual 35%, projected 85%:
-- `positional = (40 - 35) / 100 = 0.05`
-- `velocityDeviation = (100 - 85) / 100 = 0.15`
-- `raw = 0.5 * 0.05 + 0.5 * 0.15 = 0.10`
-- `deviation = tanh(0.2) = 0.20` (slightly behind — use more)
+Example: expected 40%, actual 45%, projected 110%, remainingFrac 0.5, confidence 0.7:
+- `positional = (45 - 40) / (100 * 0.5) = 0.10`
+- `velocityDeviation = (110 - 100) / 100 = 0.10`
+- `vWeight = 0.5 * 0.7 = 0.35`
+- `raw = 0.65 * 0.10 + 0.35 * 0.10 = 0.10`
+- `deviation = tanh(0.2) = 0.20` (slightly ahead — ease off)
 
 ## Stage 2: Session Target & Budget
 
@@ -132,17 +137,17 @@ Example: expected 40%, actual 35%, projected 85%:
 Deviation scales the session utilization target:
 
 ```
-sessionTarget = 100 * clamp(1 + deviation, 0.1, 1.0)
+sessionTarget = 100 * clamp(1 - deviation, 0.3, 1.0)
 ```
 
 | Deviation | Target | Meaning |
 |---|---|---|
 | 0 | 100% | On pace — use the full session |
-| -0.5 | 50% | Ahead — only need half the session |
-| -0.9 | 10% | Way ahead — barely use the session |
-| +0.5 | 100% | Behind — use everything (capped) |
+| +0.5 | 50% | Ahead — only need half the session |
+| +0.7 | 30% | Way ahead — minimum target floor |
+| -0.5 | 100% | Behind — use everything (capped) |
 
-The target can only be lowered (not raised above 100%), since you can't retroactively recover missed usage by exceeding a single session.
+The target can only be lowered (not raised above 100%), since you can't retroactively recover missed usage by exceeding a single session. The floor is 30% to prevent absurd targets.
 
 ### Session Budget
 
@@ -181,18 +186,26 @@ The optimal rate is the most conservative of three constraints: hit the target, 
 
 *The final output: a value in **[-1, 1]** indicating pacing direction.*
 
-```
-velocity = EMA velocity from session polls (see below)
-         | fallback: sessionUsage / max(elapsed, 0.1)   if elapsed >= 5 min
+Blends a session error term (how well the current session tracks its target) with the weekly deviation signal:
 
-if sessionRemaining <= 0:
+```
+if sessionRemaining <= 0 or elapsed < 5 min:
     calibrator = 0
 
-elif optimalRate < 1e-6:
-    calibrator = 1 if velocity > 1e-6 else 0
-
 else:
-    calibrator = clamp((velocity - optimalRate) / optimalRate, -1, 1)
+    // Session error: how far above/below the target line, normalised against full session scale
+    expectedUsage = sessionTarget * (elapsed / sessionMinutes)
+    remainingFrac = max(sessionRemaining / sessionMinutes, 0.1)
+    sessionError  = (sessionUsage - expectedUsage) / max(100 * remainingFrac, 1)
+
+    // Blend: weekly deviation gets at least 50% weight (more near session end)
+    sFrac   = sessionRemaining / sessionMinutes
+    wWeight = max(1 - sFrac, min(|deviation|, 0.5))
+    raw     = clamp((1 - wWeight) * sessionError + wWeight * deviation, -1, 1)
+
+    // Dead zone: suppress |raw| < 0.05
+    // Hysteresis: zones (ok/fast/slow) with entry/exit thresholds
+    // Smoothing: output = 0.25 * hz + 0.75 * prevOutput
 ```
 
 | Calibrator | Menu bar | Meaning |
@@ -201,6 +214,37 @@ else:
 | +1 | Full bar above center (red) | Consuming too fast — ease off |
 | -1 | Full bar below center (red) | Consuming too slowly — use more |
 | ~0 | Small/no bar (green) | Close to optimal |
+
+### Session Deviation
+
+Displayed as "Session Pace" — how the session is tracking against the target:
+
+```
+usageFrac   = sessionUsage / 100
+elapsedFrac = elapsed / sessionMinutes
+delta       = usageFrac - (sessionTarget / 100) * elapsedFrac
+
+if delta >= 0:
+    normalizer = max(sessionRemaining / sessionMinutes, 0.1)
+    raw = tanh(delta / normalizer)
+    sessionDeviation = min(raw * exp(usageFrac^8), 1)   // boost at high usage
+else:
+    sessionDeviation = tanh(2 * delta)
+```
+
+### Daily Deviation
+
+Displayed as "Daily Budget" — how much of today's allotment has been used (not time-proportional):
+
+```
+dailyDelta     = max(weeklyUsage - snapshot.weeklyUsagePct, 0)
+daysRemaining  = max(snapshot.weeklyMinsLeft / 1440, 0.01)
+dailyAllotment = (100 - snapshot.weeklyUsagePct) / daysRemaining
+
+dailyDeviation = clamp(dailyDelta / dailyAllotment - 1, -1, 1)
+```
+
+Returns 0 when no usage has occurred since the daily snapshot. At `dailyDelta == dailyAllotment` (exactly on budget) the deviation is 0. Over-budget is positive, under-budget is negative.
 
 ## Velocity Estimation (EWMA)
 
