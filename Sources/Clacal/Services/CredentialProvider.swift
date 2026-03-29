@@ -6,6 +6,12 @@ private let logger = Logger(subsystem: "com.bml.clacal", category: "Credentials"
 enum CredentialProvider {
     private static let serviceName = "Claude Code-credentials"
 
+    static func readTokenAsync() async -> String? {
+        await Task.detached(priority: .utility) {
+            readToken()
+        }.value
+    }
+
     static func readToken() -> String? {
         logger.debug("Reading credentials via security CLI: service=\(serviceName, privacy: .public)")
 

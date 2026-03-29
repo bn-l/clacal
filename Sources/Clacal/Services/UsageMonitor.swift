@@ -135,7 +135,7 @@ final class UsageMonitor {
         }
 
         do {
-            guard let token = CredentialProvider.readToken() else {
+            guard let token = await CredentialProvider.readTokenAsync() else {
                 appendError("No OAuth token in Keychain. Run: claude login")
                 logger.warning("No credentials available, skipping poll")
                 return
