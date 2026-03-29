@@ -18,6 +18,7 @@ struct OptimiserResult: Sendable {
     let isNewSession: Bool
     let sessionDeviation: Double
     let dailyDeviation: Double
+    let dailyBudgetRemaining: Double
 }
 
 @MainActor
@@ -122,12 +123,13 @@ final class UsageOptimiser {
         let velocity = sessionVelocity()
         let sError = sessionError(poll, target: target)
         let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
-        let sDev = sessionDeviation(poll)
+        let sDev = sessionDeviation(poll, target: target)
         let dDev = dailyDeviation(poll)
+        let dRemaining = dailyBudgetRemaining(poll)
 
         persist()
 
-        logger.info("Poll recorded: calibrator=\(cal, privacy: .public) target=\(target, privacy: .public) optimalRate=\(optimal, privacy: .public) weeklyDev=\(deviation, privacy: .public) sessionDev=\(sDev, privacy: .public) dailyDev=\(dDev, privacy: .public) newSession=\(isNewSession, privacy: .public)")
+        logger.info("Poll recorded: calibrator=\(cal, privacy: .public) target=\(target, privacy: .public) optimalRate=\(optimal, privacy: .public) weeklyDev=\(deviation, privacy: .public) sessionDev=\(sDev, privacy: .public) dailyDev=\(dDev, privacy: .public) dailyRemaining=\(dRemaining, privacy: .public) newSession=\(isNewSession, privacy: .public)")
 
         return OptimiserResult(
             calibrator: cal,
@@ -139,7 +141,8 @@ final class UsageOptimiser {
             sessionBudget: budget,
             isNewSession: isNewSession,
             sessionDeviation: sDev,
-            dailyDeviation: dDev
+            dailyDeviation: dDev,
+            dailyBudgetRemaining: dRemaining
         )
     }
 
@@ -279,10 +282,10 @@ final class UsageOptimiser {
         guard elapsed >= 5 else { return 0 }
         let expectedUsage = target * (elapsed / Self.sessionMinutes)
         let remainingFrac = max(poll.sessionRemaining / Self.sessionMinutes, 0.1)
-        return (poll.sessionUsage - expectedUsage) / max(target * remainingFrac, 1)
+        return (poll.sessionUsage - expectedUsage) / max(100 * remainingFrac, 1)
     }
 
-    private func sessionDeviation(_ poll: Poll) -> Double {
+    private func sessionDeviation(_ poll: Poll, target: Double) -> Double {
         guard poll.sessionRemaining > 0 else { return 0 }
 
         let elapsedMinutes = Self.sessionMinutes - poll.sessionRemaining
@@ -290,7 +293,7 @@ final class UsageOptimiser {
 
         let usageFrac = poll.sessionUsage / 100
         let elapsedFrac = elapsedMinutes / Self.sessionMinutes
-        let delta = usageFrac - elapsedFrac
+        let delta = usageFrac - (target / 100) * elapsedFrac
 
         // Behind pace: constant 2× keeps the reading stable across the whole
         // session (no normalizer that blows up at either extreme).
@@ -514,6 +517,10 @@ final class UsageOptimiser {
             : boundary
     }
 
+    // DEVLOG: Do NOT uncomment the time-proportional (active-hours) version below.
+    // Daily budget is intentionally a simple ratio of today's usage vs the full-day
+    // allotment — it answers "how much of today's budget have I used?" not "am I
+    // on pace through the day?" The latter was tried and reverted.
     private func dailyDeviation(_ poll: Poll) -> Double {
         guard let snapshot = dailySnapshot else { return 0 }
         let dailyDelta = max(poll.weeklyUsage - snapshot.weeklyUsagePct, 0)
@@ -522,18 +529,17 @@ final class UsageOptimiser {
         let dailyAllotment = max(100 - snapshot.weeklyUsagePct, 0) / daysRemaining
         guard dailyAllotment > 0.01 else { return 0 }
 
-        // Time-proportional: what fraction of today's active hours have elapsed?
-        // let calendar = Calendar.current
-        // let boundary = dayBoundary(for: poll.timestamp, calendar: calendar)
-        // let dayEnd = boundary.addingTimeInterval(86400)
-        // let activeTotal = activeHoursInRange(from: boundary, to: dayEnd)
-        // let activeElapsed = activeHoursInRange(from: boundary, to: poll.timestamp)
-        // let elapsedFrac = activeTotal > 0 ? activeElapsed / activeTotal : 0
-        // let expected = dailyAllotment * elapsedFrac
-        // let raw = (dailyDelta - expected) / dailyAllotment
-
         let raw = dailyDelta / dailyAllotment - 1
         return min(max(raw, -1), 1)
+    }
+
+    private func dailyBudgetRemaining(_ poll: Poll) -> Double {
+        guard let snapshot = dailySnapshot else { return 1 }
+        let dailyDelta = max(poll.weeklyUsage - snapshot.weeklyUsagePct, 0)
+        let daysRemaining = max(snapshot.weeklyMinsLeft / 1440.0, 0.01)
+        let dailyAllotment = max(100 - snapshot.weeklyUsagePct, 0) / daysRemaining
+        guard dailyAllotment > 0.01 else { return 1 }
+        return max(1 - dailyDelta / dailyAllotment, 0)
     }
 
     // MARK: - Idle Tracking
