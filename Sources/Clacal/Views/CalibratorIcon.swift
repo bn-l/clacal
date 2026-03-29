@@ -91,7 +91,7 @@ struct CalibratorIcon: View {
                 let hue = CGFloat(remaining) * (120.0 / 360.0)
                 let color = NSColor(hue: hue, saturation: 0.6, brightness: 0.925, alpha: 1.0).cgColor
                 ctx.setFillColor(color)
-                ctx.fill(CGRect(x: barWidth + gap, y: size - gaugeHeight, width: barWidth, height: gaugeHeight))
+                ctx.fill(CGRect(x: barWidth + gap, y: 0, width: barWidth, height: gaugeHeight))
             }
 
             // Center line — left (session deviation) bar only
