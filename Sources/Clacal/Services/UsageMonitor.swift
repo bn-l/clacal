@@ -98,6 +98,7 @@ final class UsageMonitor {
             sessionTarget: result.target,
             sessionDeviation: result.sessionDeviation,
             dailyDeviation: result.dailyDeviation,
+            dailyBudgetRemaining: result.dailyBudgetRemaining,
             weeklyDeviation: result.weeklyDeviation,
             sessionElapsedPct: (UsageOptimiser.sessionMinutes - sessionMinsLeft) / UsageOptimiser.sessionMinutes * 100,
             weeklyElapsedPct: (UsageOptimiser.weekMinutes - weeklyMinsLeft) / UsageOptimiser.weekMinutes * 100,

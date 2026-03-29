@@ -10,6 +10,7 @@ struct UsageMetrics: Sendable {
     let sessionTarget: Double
     let sessionDeviation: Double
     let dailyDeviation: Double
+    let dailyBudgetRemaining: Double
     let weeklyDeviation: Double
     let sessionElapsedPct: Double
     let weeklyElapsedPct: Double

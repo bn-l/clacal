@@ -28,11 +28,9 @@ struct MetricsView: View {
                 negativeLabel: "Behind"
             )
 
-            DeviationRow(
+            BudgetGaugeRow(
                 label: "Daily Budget",
-                value: metrics.dailyDeviation,
-                positiveLabel: "Over",
-                negativeLabel: "Under"
+                remaining: metrics.dailyBudgetRemaining
             )
 
             if metrics.isSessionActive {
@@ -126,6 +124,46 @@ struct DeviationRow: View {
         let pct = Int(round(value * 100))
         if pct == 0 { return "0%" }
         return pct > 0 ? "+\(pct)%" : "\(pct)%"
+    }
+}
+
+struct BudgetGaugeRow: View {
+    let label: String
+    let remaining: Double
+
+    var body: some View {
+        let clamped = min(max(remaining, 0), 1)
+        let percent = Int(round(clamped * 100))
+        let color = Color(
+            hue: clamped * (120.0 / 360.0),
+            saturation: 0.6,
+            brightness: 0.925
+        )
+
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(percent)%")
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .monospacedDigit()
+            }
+
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(Color.primary.opacity(0.08))
+
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(color)
+                        .frame(width: geo.size.width * clamped)
+                }
+            }
+            .frame(height: 8)
+        }
     }
 }
 

@@ -8,6 +8,7 @@ struct CalibratorIcon: View {
     let calibrator: Double
     let sessionDeviation: Double
     let dailyDeviation: Double
+    let dailyBudgetRemaining: Double
     let displayMode: MenuBarDisplayMode
     var isSessionActive = true
     var hasError = false
@@ -83,18 +84,19 @@ struct CalibratorIcon: View {
                 }
             }
 
-            // Right bar — daily allotment deviation (positive = over budget, negative = under)
-            let dClamped = max(-1, min(1, dailyDeviation))
-            let dHeight = CGFloat(abs(dClamped)) * maxExtent
-            if dHeight > 0.5 {
-                ctx.setFillColor(UsageColor.cgColorFromCalibrator(dClamped))
-                let barY: CGFloat = dClamped >= 0 ? centerY : centerY - dHeight
-                ctx.fill(CGRect(x: barWidth + gap, y: barY, width: barWidth, height: dHeight))
+            // Right bar — daily budget gauge (full=top/green, depletes downward toward bottom/red)
+            let remaining = max(0, min(1, dailyBudgetRemaining))
+            let gaugeHeight = CGFloat(remaining) * size
+            if gaugeHeight > 0.5 {
+                let hue = CGFloat(remaining) * (120.0 / 360.0)
+                let color = NSColor(hue: hue, saturation: 0.6, brightness: 0.925, alpha: 1.0).cgColor
+                ctx.setFillColor(color)
+                ctx.fill(CGRect(x: barWidth + gap, y: size - gaugeHeight, width: barWidth, height: gaugeHeight))
             }
 
-            // Contiguous white center line across both bars
+            // Center line — left (session deviation) bar only
             ctx.setFillColor(NSColor.white.cgColor)
-            ctx.fill(CGRect(x: 0, y: centerY - 0.5, width: size, height: 1))
+            ctx.fill(CGRect(x: 0, y: centerY - 0.5, width: barWidth, height: 1))
 
             return true
         }
