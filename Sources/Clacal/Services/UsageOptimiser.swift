@@ -414,14 +414,11 @@ final class UsageOptimiser {
 
     func exchangeRate() -> Double? {
         var ratios: [Double] = []
-        for index in 1..<polls.count {
-            guard !spansSessionBoundary(from: polls[index - 1].timestamp, to: polls[index].timestamp) else {
-                continue
-            }
-            let deltaMinutes = polls[index].timestamp.timeIntervalSince(polls[index - 1].timestamp) / 60
-            guard deltaMinutes > 0, deltaMinutes <= Self.gapThresholdMinutes else { continue }
-            let deltaSession = polls[index].sessionUsage - polls[index - 1].sessionUsage
-            let deltaWeekly = polls[index].weeklyUsage - polls[index - 1].weeklyUsage
+        forEachPollPairWithinSession { previous, current in
+            let deltaMinutes = current.timestamp.timeIntervalSince(previous.timestamp) / 60
+            guard deltaMinutes > 0, deltaMinutes <= Self.gapThresholdMinutes else { return }
+            let deltaSession = current.sessionUsage - previous.sessionUsage
+            let deltaWeekly = current.weeklyUsage - previous.weeklyUsage
             if deltaSession > 0.5 {
                 ratios.append(deltaWeekly / deltaSession)
             }
@@ -431,8 +428,30 @@ final class UsageOptimiser {
         return ratios[ratios.count / 2]
     }
 
-    private func spansSessionBoundary(from start: Date, to end: Date) -> Bool {
-        sessionStarts.contains { $0.timestamp > start && $0.timestamp <= end }
+    // Session starts and polls are chronological. Walk them once together so a
+    // single poll update doesn't repeatedly rescan the full session history.
+    private func forEachPollPairWithinSession(_ body: (Poll, Poll) -> Void) {
+        guard polls.count >= 2 else { return }
+
+        var nextSessionStartIndex = sessionStarts.firstIndex {
+            $0.timestamp > polls[0].timestamp
+        } ?? sessionStarts.endIndex
+
+        for index in 1..<polls.count {
+            let previous = polls[index - 1]
+            let current = polls[index]
+            let crossesBoundary = nextSessionStartIndex < sessionStarts.endIndex
+                && sessionStarts[nextSessionStartIndex].timestamp <= current.timestamp
+
+            if !crossesBoundary {
+                body(previous, current)
+            }
+
+            while nextSessionStartIndex < sessionStarts.endIndex,
+                  sessionStarts[nextSessionStartIndex].timestamp <= current.timestamp {
+                nextSessionStartIndex += 1
+            }
+        }
     }
 
     private func weeklyElapsedPercent(_ poll: Poll) -> Double {
@@ -554,26 +573,21 @@ final class UsageOptimiser {
         guard daysSinceFirst >= Self.windowDetectionDaysRequired else { return }
 
         let calendar = Calendar.current
+        var activeHoursByDay = Array(repeating: [Double](), count: 7)
+
+        forEachPollPairWithinSession { previous, current in
+            let deltaSession = current.sessionUsage - previous.sessionUsage
+            guard deltaSession > 0.5 else { return }
+
+            let calendarWeekday = calendar.component(.weekday, from: current.timestamp)
+            let dayIndex = (calendarWeekday + 5) % 7
+            let hour = Double(calendar.component(.hour, from: current.timestamp))
+                + Double(calendar.component(.minute, from: current.timestamp)) / 60
+            activeHoursByDay[dayIndex].append(hour)
+        }
 
         for dayIndex in 0..<7 {
-            var activeHours: [Double] = []
-
-            for index in 1..<polls.count {
-                guard !spansSessionBoundary(from: polls[index - 1].timestamp, to: polls[index].timestamp) else {
-                    continue
-                }
-                let deltaSession = polls[index].sessionUsage - polls[index - 1].sessionUsage
-                guard deltaSession > 0.5 else { continue }
-
-                let calendarWeekday = calendar.component(.weekday, from: polls[index].timestamp)
-                let pollDayIndex = (calendarWeekday + 5) % 7
-                guard pollDayIndex == dayIndex else { continue }
-
-                let hour = Double(calendar.component(.hour, from: polls[index].timestamp))
-                    + Double(calendar.component(.minute, from: polls[index].timestamp)) / 60
-                activeHours.append(hour)
-            }
-
+            let activeHours = activeHoursByDay[dayIndex]
             guard activeHours.count >= Self.windowDetectionMinPolls else { continue }
 
             let earliest = activeHours.min()!
