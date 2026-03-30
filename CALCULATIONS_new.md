@@ -222,15 +222,29 @@ Displayed as "Session Pace" — how the session is tracking against the target:
 ```
 usageFrac   = sessionUsage / 100
 elapsedFrac = elapsed / sessionMinutes
-delta       = usageFrac - (sessionTarget / 100) * elapsedFrac
+targetFrac  = sessionTarget / 100
 
-if delta >= 0:
-    normalizer = max(sessionRemaining / sessionMinutes, 0.1)
-    raw = tanh(delta / normalizer)
-    sessionDeviation = min(raw * exp(usageFrac^8), 1)   // boost at high usage
+targetInfluence = min((1 - targetFrac) * 0.35, 0.25)
+expectedFrac    = elapsedFrac * (1 - targetInfluence)
+                + (targetFrac * elapsedFrac) * targetInfluence
+positionScore   = tanh((usageFrac - expectedFrac) / 0.25)
+
+if currentRate is available:
+    rateScore  = tanh((currentRate - optimalRate) / 0.35)
+    rateWeight = min(0.15, elapsedFrac * 0.15)
+    raw        = (1 - rateWeight) * positionScore + rateWeight * rateScore
 else:
-    sessionDeviation = tanh(2 * delta)
+    raw        = positionScore
+
+sessionDeviation = 0 if |raw| < 0.05 else clamp(raw, -1, 1)
 ```
+
+This makes Session Pace an explanatory metric rather than the control output:
+
+- raw session progress remains the main anchor
+- the weekly target biases the reading but does not replace the session baseline
+- recent rate matters when available via `currentRate` vs `optimalRate`
+- the late-session divisor and exponential high-usage boost are intentionally removed
 
 ### Daily Deviation
 
