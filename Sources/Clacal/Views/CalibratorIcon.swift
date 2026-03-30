@@ -115,7 +115,7 @@ struct CalibratorIcon: View {
 
     private func drawArrow(ctx: CGContext, value: Double, barX: CGFloat, barWidth: CGFloat, size: CGFloat) {
         let clamped = max(-1, min(1, value))
-        guard abs(clamped) > 0.15, abs(clamped) < 0.5 else { return }
+        guard abs(clamped) > 0.15 else { return }
 
         let arrowHeight: CGFloat = 2
         ctx.setFillColor(NSColor.white.cgColor)
