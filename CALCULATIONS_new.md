@@ -236,6 +236,10 @@ if currentRate is available:
 else:
     raw        = positionScore
 
+if raw > 0 and usageFrac > 0.90:
+    ramp = (usageFrac - 0.90) / 0.10
+    raw  = raw + (1 - raw) * 0.35 * clamp(ramp, 0, 1)
+
 sessionDeviation = 0 if |raw| < 0.05 else clamp(raw, -1, 1)
 ```
 
@@ -244,6 +248,7 @@ This makes Session Pace an explanatory metric rather than the control output:
 - raw session progress remains the main anchor
 - the weekly target biases the reading but does not replace the session baseline
 - recent rate matters when available via `currentRate` vs `optimalRate`
+- above 90% session usage, positive pace ramps up into the finish
 - the late-session divisor and exponential high-usage boost are intentionally removed
 
 ### Daily Deviation

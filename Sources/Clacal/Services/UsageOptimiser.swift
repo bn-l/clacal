@@ -40,6 +40,8 @@ final class UsageOptimiser {
     private static let sessionDeviationRateScale: Double = 0.35
     private static let sessionDeviationRateWeightMax: Double = 0.15
     private static let sessionDeviationDeadZone: Double = 0.05
+    private static let sessionDeviationHighUsageThreshold: Double = 0.9
+    private static let sessionDeviationHighUsageBoostMax: Double = 0.35
     private static let windowDetectionMinPolls = 3
     private static let windowDetectionDaysRequired: Double = 7
 
@@ -333,9 +335,24 @@ final class UsageOptimiser {
             combined = positionScore
         }
 
-        return abs(combined) < Self.sessionDeviationDeadZone
+        let boosted: Double
+        if combined > 0, usageFrac > Self.sessionDeviationHighUsageThreshold {
+            let ramp = min(
+                max(
+                    (usageFrac - Self.sessionDeviationHighUsageThreshold)
+                        / (1 - Self.sessionDeviationHighUsageThreshold),
+                    0
+                ),
+                1
+            )
+            boosted = combined + (1 - combined) * Self.sessionDeviationHighUsageBoostMax * ramp
+        } else {
+            boosted = combined
+        }
+
+        return abs(boosted) < Self.sessionDeviationDeadZone
             ? 0
-            : max(-1, min(1, combined))
+            : max(-1, min(1, boosted))
     }
 
     // MARK: - Stage 4: Calibrator (PB+Pipe)

@@ -776,4 +776,20 @@ struct OptimiserSessionDeviationTests {
         #expect(result.sessionDeviation >= -1)
         #expect(result.sessionDeviation <= 1)
     }
+
+    @Test("Session pace ramps once usage crosses 90 percent")
+    func sessionPaceRampsAboveNinetyPercentUsage() {
+        let below = makeTestOptimiser().recordPoll(
+            sessionUsage: 89, sessionRemaining: 30,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+        let above = makeTestOptimiser().recordPoll(
+            sessionUsage: 91, sessionRemaining: 30,
+            weeklyUsage: 50, weeklyRemaining: 5040
+        )
+
+        #expect(below.sessionDeviation == 0)
+        #expect(above.sessionDeviation > 0)
+        #expect(above.sessionDeviation > below.sessionDeviation)
+    }
 }
