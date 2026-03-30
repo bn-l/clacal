@@ -54,6 +54,9 @@ struct CalibratorIcon: View {
             ctx.setFillColor(NSColor.white.cgColor)
             ctx.fill(CGRect(x: 0, y: centerY - 0.5, width: size, height: 1))
 
+            // Arrow indicator when |calibrator| > 15%
+            drawArrow(ctx: ctx, value: calibrator, barX: barX, barWidth: barWidth, size: size)
+
             return true
         }
         image.isTemplate = false
@@ -98,9 +101,37 @@ struct CalibratorIcon: View {
             ctx.setFillColor(NSColor.white.cgColor)
             ctx.fill(CGRect(x: 0, y: centerY - 0.5, width: barWidth, height: 1))
 
+            // Arrow indicator when |sessionDeviation| > 15%
+            if isSessionActive {
+                drawArrow(ctx: ctx, value: sessionDeviation, barX: 0, barWidth: barWidth, size: size)
+            }
+
             return true
         }
         image.isTemplate = false
         return image
+    }
+
+    private func drawArrow(ctx: CGContext, value: Double, barX: CGFloat, barWidth: CGFloat, size: CGFloat) {
+        let clamped = max(-1, min(1, value))
+        guard abs(clamped) > 0.15 else { return }
+
+        let arrowHeight: CGFloat = 2
+        ctx.setFillColor(NSColor.white.cgColor)
+
+        if clamped > 0 {
+            // Upward arrow, tip at top edge
+            ctx.move(to: CGPoint(x: barX + barWidth / 2, y: size))
+            ctx.addLine(to: CGPoint(x: barX, y: size - arrowHeight))
+            ctx.addLine(to: CGPoint(x: barX + barWidth, y: size - arrowHeight))
+        } else {
+            // Downward arrow, tip at bottom edge
+            ctx.move(to: CGPoint(x: barX + barWidth / 2, y: 0))
+            ctx.addLine(to: CGPoint(x: barX, y: arrowHeight))
+            ctx.addLine(to: CGPoint(x: barX + barWidth, y: arrowHeight))
+        }
+
+        ctx.closePath()
+        ctx.fillPath()
     }
 }
