@@ -89,7 +89,7 @@ struct CalibratorIcon: View {
 
             // Right bar — daily budget gauge (full=top/green, depletes downward toward bottom/red)
             let remaining = max(0, min(1, dailyBudgetRemaining))
-            let gaugeHeight = CGFloat(remaining) * size
+            let gaugeHeight = max(remaining > 0 ? 1.0 : 0.0, CGFloat(remaining) * size)
             if gaugeHeight > 0.5 {
                 let hue = CGFloat(remaining) * (120.0 / 360.0)
                 let color = NSColor(hue: hue, saturation: 0.6, brightness: 0.925, alpha: 1.0).cgColor
