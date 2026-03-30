@@ -30,18 +30,10 @@ final class UsageOptimiser {
     private static let emaAlpha = 0.3
     private static let gapThresholdMinutes: Double = 15
     private static let boundaryJumpMinutes: Double = 30
+    private static let minActiveHoursForProjection: Double = 0.5
     private static let minExchangeRateSamples = 10
     private static let empiricalWeeksRequired: Double = 3
-    private static let empiricalMatchToleranceMinutes: Double = 180
-    private static let empiricalFullConfidenceWeeks: Double = 6
-    private static let weeklyScheduleBiasCap: Double = 6
-    private static let weeklyScheduleBiasWeight: Double = 0.25
-    private static let weeklyEmpiricalBiasCapStart: Double = 12
-    private static let weeklyEmpiricalBiasCapEnd: Double = 4
-    private static let weeklyGapScaleStart: Double = 18
-    private static let weeklyGapScaleEnd: Double = 10
-    private static let weeklyProjectionWeightStart: Double = 0.1
-    private static let weeklyProjectionWeightEnd: Double = 0.3
+    private static let empiricalMinSamples = 5
     private static let windowDetectionMinPolls = 3
     private static let windowDetectionDaysRequired: Double = 7
 
@@ -177,37 +169,33 @@ final class UsageOptimiser {
     private func weeklyDeviation(_ poll: Poll) -> Double {
         guard poll.weeklyRemaining > 0 else { return 0 }
 
-        let elapsedPct = weeklyElapsedPercent(poll)
-        let expected = weeklyExpected(poll)
-        let elapsedFrac = elapsedPct / 100
-        let scale = interpolate(
-            from: Self.weeklyGapScaleStart,
-            to: Self.weeklyGapScaleEnd,
-            fraction: elapsedFrac
-        )
+        let elapsedMinutes = Self.weekMinutes - poll.weeklyRemaining
+        let weekStart = poll.timestamp.addingTimeInterval(-elapsedMinutes * 60)
+        let weekEnd = poll.timestamp.addingTimeInterval(poll.weeklyRemaining * 60)
+        let activeElapsed = activeHoursInRange(from: weekStart, to: poll.timestamp)
+        let activeTotal = activeHoursInRange(from: weekStart, to: weekEnd)
 
-        var raw = (poll.weeklyUsage - expected) / scale
-        if let projected = weeklyProjected(poll) {
-            let finishGap = clamp((projected - 100) / 20, lower: -1, upper: 1)
-            let projectionWeight = interpolate(
-                from: Self.weeklyProjectionWeightStart,
-                to: Self.weeklyProjectionWeightEnd,
-                fraction: elapsedFrac
-            )
-            raw = (1 - projectionWeight) * raw + projectionWeight * finishGap
+        let expected = weeklyExpected(poll)
+        let remainingFrac = max(poll.weeklyRemaining / Self.weekMinutes, 0.1)
+        let positional = (poll.weeklyUsage - expected) / (100 * remainingFrac)
+
+        if let projected = weeklyProjected(poll), activeTotal > 0 {
+            let velocityDeviation = (projected - 100) / 100
+            // Confidence-gate velocity: weight by fraction of active week elapsed
+            let confidence = min(activeElapsed / activeTotal, 1)
+            let vWeight = 0.5 * confidence
+            let raw = (1 - vWeight) * positional + vWeight * velocityDeviation
+            return tanh(2 * raw)
         }
-        if abs(raw) < 0.05 {
-            return 0
-        }
-        return tanh(raw)
+        return tanh(2 * positional)
     }
 
     private func weeklyExpected(_ poll: Poll) -> Double {
         let elapsedMinutes = Self.weekMinutes - poll.weeklyRemaining
-        let elapsedPct = weeklyElapsedPercent(poll)
-        let scheduleBias = weeklyScheduleBias(poll, elapsedPct: elapsedPct)
-        let empiricalBias = weeklyEmpiricalBias(poll, elapsedMinutes: elapsedMinutes, elapsedPct: elapsedPct)
-        return clamp(elapsedPct + scheduleBias + empiricalBias, lower: 0, upper: 100)
+        if let empirical = weeklyExpectedEmpirical(poll, elapsedMinutes: elapsedMinutes) {
+            return empirical
+        }
+        return weeklyExpectedFromSchedule(poll)
     }
 
     private func weeklyExpectedFromSchedule(_ poll: Poll) -> Double {
@@ -223,21 +211,30 @@ final class UsageOptimiser {
     }
 
     private func weeklyProjected(_ poll: Poll) -> Double? {
-        guard let velocity = weeklyVelocity() else { return nil }
-        let remainingActiveMinutes = max(remainingActiveHours(poll) * 60, 0)
-        return poll.weeklyUsage + velocity * remainingActiveMinutes
+        let elapsedMinutes = Self.weekMinutes - poll.weeklyRemaining
+        let weekStart = poll.timestamp.addingTimeInterval(-elapsedMinutes * 60)
+        let weekEnd = poll.timestamp.addingTimeInterval(poll.weeklyRemaining * 60)
+
+        let activeElapsed = activeHoursInRange(from: weekStart, to: poll.timestamp)
+        guard activeElapsed >= Self.minActiveHoursForProjection else { return nil }
+
+        let activeRemaining = activeHoursInRange(from: poll.timestamp, to: weekEnd)
+        let averageRate = poll.weeklyUsage / activeElapsed
+        return poll.weeklyUsage + averageRate * activeRemaining
     }
 
-    private func weeklyExpectedEmpirical(_ poll: Poll, elapsedMinutes: Double) -> (medianUsage: Double, sampleCount: Int)? {
+    private func weeklyExpectedEmpirical(_ poll: Poll, elapsedMinutes: Double) -> Double? {
         guard dataWeeks() >= Self.empiricalWeeksRequired else { return nil }
 
         let cutoff = poll.timestamp.addingTimeInterval(-7 * 86400)
-        let values = historicalWeeks(endingBefore: cutoff)
-            .compactMap { nearestWeeklyUsage(in: $0, elapsedMinutes: elapsedMinutes) }
+        let values = polls
+            .filter { $0.timestamp < cutoff }
+            .filter { abs((Self.weekMinutes - $0.weeklyRemaining) - elapsedMinutes) < 15 }
+            .map(\.weeklyUsage)
             .sorted()
 
-        guard values.count >= Int(Self.empiricalWeeksRequired.rounded(.up)) else { return nil }
-        return (median(values), values.count)
+        guard values.count >= Self.empiricalMinSamples else { return nil }
+        return values[values.count / 2]
     }
 
     // MARK: - Stage 2: Session Target & Budget
@@ -379,25 +376,6 @@ final class UsageOptimiser {
         return emaVelocity(sessionPolls) { $0.sessionUsage }
     }
 
-    private func weeklyVelocity() -> Double? {
-        guard polls.count >= 2 else { return nil }
-        var ema: Double?
-        for index in 1..<polls.count {
-            let previous = polls[index - 1]
-            let current = polls[index]
-            let deltaMinutes = current.timestamp.timeIntervalSince(previous.timestamp) / 60
-            guard deltaMinutes > 0, deltaMinutes <= Self.gapThresholdMinutes else { continue }
-            guard current.weeklyRemaining <= previous.weeklyRemaining else { continue }
-
-            let deltaWeekly = current.weeklyUsage - previous.weeklyUsage
-            guard deltaWeekly >= 0 else { continue }
-
-            let instantVelocity = deltaWeekly / deltaMinutes
-            ema = ema.map { Self.emaAlpha * instantVelocity + (1 - Self.emaAlpha) * $0 } ?? instantVelocity
-        }
-        return ema
-    }
-
     private func emaVelocity(_ points: [Poll], value: (Poll) -> Double) -> Double? {
         guard points.count >= 2 else { return nil }
         var ema: Double?
@@ -452,85 +430,6 @@ final class UsageOptimiser {
                 nextSessionStartIndex += 1
             }
         }
-    }
-
-    private func weeklyElapsedPercent(_ poll: Poll) -> Double {
-        clamp((Self.weekMinutes - poll.weeklyRemaining) / Self.weekMinutes * 100, lower: 0, upper: 100)
-    }
-
-    private func weeklyScheduleBias(_ poll: Poll, elapsedPct: Double) -> Double {
-        let rawBias = weeklyExpectedFromSchedule(poll) - elapsedPct
-        let capped = clamp(rawBias, lower: -Self.weeklyScheduleBiasCap, upper: Self.weeklyScheduleBiasCap)
-        return capped * Self.weeklyScheduleBiasWeight
-    }
-
-    private func weeklyEmpiricalBias(_ poll: Poll, elapsedMinutes: Double, elapsedPct: Double) -> Double {
-        guard let empirical = weeklyExpectedEmpirical(poll, elapsedMinutes: elapsedMinutes) else { return 0 }
-
-        let elapsedFrac = elapsedPct / 100
-        let cap = interpolate(
-            from: Self.weeklyEmpiricalBiasCapStart,
-            to: Self.weeklyEmpiricalBiasCapEnd,
-            fraction: elapsedFrac
-        )
-        let confidence = min(Double(empirical.sampleCount) / Self.empiricalFullConfidenceWeeks, 1)
-        let rawBias = empirical.medianUsage - elapsedPct
-        return confidence * clamp(rawBias, lower: -cap, upper: cap)
-    }
-
-    private func historicalWeeks(endingBefore cutoff: Date) -> [[Poll]] {
-        guard let first = polls.first else { return [] }
-
-        var weeks: [[Poll]] = []
-        var currentWeek = [first]
-
-        for poll in polls.dropFirst() {
-            if poll.weeklyRemaining - currentWeek.last!.weeklyRemaining > 60 {
-                if let last = currentWeek.last, last.timestamp < cutoff {
-                    weeks.append(currentWeek)
-                }
-                currentWeek = [poll]
-            } else {
-                currentWeek.append(poll)
-            }
-        }
-
-        if let last = currentWeek.last, last.timestamp < cutoff {
-            weeks.append(currentWeek)
-        }
-
-        return weeks
-    }
-
-    private func nearestWeeklyUsage(in week: [Poll], elapsedMinutes: Double) -> Double? {
-        guard week.count >= 3 else { return nil }
-        guard let nearest = week.min(by: {
-            abs((Self.weekMinutes - $0.weeklyRemaining) - elapsedMinutes)
-                < abs((Self.weekMinutes - $1.weeklyRemaining) - elapsedMinutes)
-        }) else {
-            return nil
-        }
-
-        let distance = abs((Self.weekMinutes - nearest.weeklyRemaining) - elapsedMinutes)
-        guard distance <= Self.empiricalMatchToleranceMinutes else { return nil }
-        return nearest.weeklyUsage
-    }
-
-    private func interpolate(from start: Double, to end: Double, fraction: Double) -> Double {
-        let clamped = clamp(fraction, lower: 0, upper: 1)
-        return start + (end - start) * clamped
-    }
-
-    private func clamp(_ value: Double, lower: Double, upper: Double) -> Double {
-        min(max(value, lower), upper)
-    }
-
-    private func median(_ values: [Double]) -> Double {
-        let middle = values.count / 2
-        if values.count.isMultiple(of: 2) {
-            return (values[middle - 1] + values[middle]) / 2
-        }
-        return values[middle]
     }
 
     // MARK: - Active Hours Schedule
