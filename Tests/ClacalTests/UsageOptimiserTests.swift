@@ -670,51 +670,92 @@ struct OptimiserExpiredSessionTests {
     }
 }
 
-// MARK: - Session Deviation Boost
+// MARK: - Session Deviation
 
-@Suite("UsageOptimiser — Session Deviation Boost")
+@Suite("UsageOptimiser — Session Deviation")
 @MainActor
-struct OptimiserSessionDeviationBoostTests {
+struct OptimiserSessionDeviationTests {
 
-    @Test("Positive error at high usage is amplified")
-    func positiveErrorAmplifiedAtHighUsage() {
+    @Test("Near parity with neutral weekly pressure stays near neutral")
+    func nearParityNeutralWeekly() {
         let opt = makeTestOptimiser()
-        // 240 min into 300-min session, usage at 85% (above linear pace of ~80%)
         let result = opt.recordPoll(
-            sessionUsage: 85, sessionRemaining: 60,
+            sessionUsage: 70, sessionRemaining: 90,
             weeklyUsage: 50, weeklyRemaining: 5040
         )
-        // Raw session error ≈ 0.25, exp(u⁸) boost at 85% ≈ 1.31x → ~0.33
-        #expect(result.sessionDeviation > 0.25)
+
+        #expect(result.target == 100)
+        #expect(abs(result.sessionDeviation) < 0.10)
     }
 
-    @Test("Positive error at low usage has minimal boost")
-    func positiveErrorMinimalBoostAtLowUsage() {
+    @Test("Reduced target keeps near-parity session pace moderate")
+    func reducedTargetKeepsSessionPaceModerate() {
         let opt = makeTestOptimiser()
-        // 100 min into session, usage 40% (above linear pace of ~33%)
         let result = opt.recordPoll(
-            sessionUsage: 40, sessionRemaining: 200,
-            weeklyUsage: 50, weeklyRemaining: 5040
+            sessionUsage: 70, sessionRemaining: 90,
+            weeklyUsage: 90, weeklyRemaining: 8640
         )
-        // Low usage → ~1.2x boost, deviation should be modest
+
+        #expect(result.target < 60)
         #expect(result.sessionDeviation > 0)
-        #expect(result.sessionDeviation < 0.5)
+        #expect(result.sessionDeviation < 0.60)
     }
 
-    @Test("Negative error is not amplified regardless of usage")
-    func negativeErrorNotAmplified() {
+    @Test("Reduced target does not override below-elapsed session state")
+    func reducedTargetDoesNotExplodeWhenBelowElapsed() {
         let opt = makeTestOptimiser()
-        // 240 min in, usage at 60% (below linear pace of ~80%)
         let result = opt.recordPoll(
-            sessionUsage: 60, sessionRemaining: 60,
-            weeklyUsage: 50, weeklyRemaining: 5040
+            sessionUsage: 60, sessionRemaining: 90,
+            weeklyUsage: 90, weeklyRemaining: 8640
         )
-        // Under-pacing → negative error, no boost applied
-        #expect(result.sessionDeviation < 0)
+
+        #expect(result.target < 60)
+        #expect(result.sessionDeviation < 0.20)
     }
 
-    @Test("Late-session underuse stays close to elapsed progress gap")
-    func lateSessionUnderuseIsNotOverAmplified() {
+    @Test("Higher current rate increases session pace for same position")
+    func higherCurrentRateIncreasesSessionDeviation() {
+        let now = Date()
+        let sessionStart = now.addingTimeInterval(-1500)
+
+        let slowData = makeStoreData(
+            polls: [
+                (sessionStart, 47, 170, 50, 5040),
+                (sessionStart.addingTimeInterval(300), 49, 165, 50.1, 5035),
+                (sessionStart.addingTimeInterval(600), 51, 160, 50.2, 5030),
+                (sessionStart.addingTimeInterval(900), 53, 155, 50.3, 5025),
+            ],
+            sessions: [(sessionStart, 50, 5040)]
+        )
+        let fastData = makeStoreData(
+            polls: [
+                (sessionStart, 35, 170, 50, 5040),
+                (sessionStart.addingTimeInterval(300), 40, 165, 50.1, 5035),
+                (sessionStart.addingTimeInterval(600), 45, 160, 50.2, 5030),
+                (sessionStart.addingTimeInterval(900), 50, 155, 50.3, 5025),
+            ],
+            sessions: [(sessionStart, 50, 5040)]
+        )
+
+        let slow = makeTestOptimiser(data: slowData).recordPoll(
+            sessionUsage: 55, sessionRemaining: 150,
+            weeklyUsage: 50.4, weeklyRemaining: 5020,
+            timestamp: now
+        )
+        let fast = makeTestOptimiser(data: fastData).recordPoll(
+            sessionUsage: 55, sessionRemaining: 150,
+            weeklyUsage: 50.4, weeklyRemaining: 5020,
+            timestamp: now
+        )
+
+        #expect(slow.currentRate != nil)
+        #expect(fast.currentRate != nil)
+        #expect(fast.currentRate! > slow.currentRate!)
+        #expect(fast.sessionDeviation > slow.sessionDeviation)
+    }
+
+    @Test("Late-session underuse stays negative without blow-up")
+    func lateSessionUnderuseStaysNegativeWithoutBlowUp() {
         let opt = makeTestOptimiser()
         let result = opt.recordPoll(
             sessionUsage: 91, sessionRemaining: 5,
@@ -722,38 +763,17 @@ struct OptimiserSessionDeviationBoostTests {
         )
 
         #expect(result.sessionDeviation < 0)
-        #expect(result.sessionDeviation > -0.20)
+        #expect(result.sessionDeviation > -0.40)
     }
 
-    @Test("Session deviation bounded [-1, 1] even with extreme boost")
-    func boundedWithExtremeBoost() {
+    @Test("Session deviation remains bounded")
+    func sessionDeviationBounded() {
         let opt = makeTestOptimiser()
-        // 270 min in, usage at 98% — extreme over-pacing triggers max boost
         let result = opt.recordPoll(
             sessionUsage: 98, sessionRemaining: 30,
             weeklyUsage: 50, weeklyRemaining: 5040
         )
         #expect(result.sessionDeviation >= -1)
         #expect(result.sessionDeviation <= 1)
-    }
-
-    @Test("Higher usage amplifies positive deviation more than lower usage")
-    func boostScalesWithUsage() {
-        // Moderate over-pacing at 55% usage
-        let opt1 = makeTestOptimiser()
-        let r1 = opt1.recordPoll(
-            sessionUsage: 55, sessionRemaining: 150,
-            weeklyUsage: 50, weeklyRemaining: 5040
-        )
-
-        // Stronger over-pacing at 85% usage
-        let opt2 = makeTestOptimiser()
-        let r2 = opt2.recordPoll(
-            sessionUsage: 85, sessionRemaining: 60,
-            weeklyUsage: 50, weeklyRemaining: 5040
-        )
-
-        #expect(r1.sessionDeviation > 0)
-        #expect(r2.sessionDeviation > r1.sessionDeviation)
     }
 }

@@ -34,6 +34,12 @@ final class UsageOptimiser {
     private static let minExchangeRateSamples = 10
     private static let empiricalWeeksRequired: Double = 3
     private static let empiricalMinSamples = 5
+    private static let sessionTargetInfluenceGain: Double = 0.35
+    private static let sessionTargetInfluenceMax: Double = 0.25
+    private static let sessionDeviationPositionScale: Double = 0.25
+    private static let sessionDeviationRateScale: Double = 0.35
+    private static let sessionDeviationRateWeightMax: Double = 0.15
+    private static let sessionDeviationDeadZone: Double = 0.05
     private static let windowDetectionMinPolls = 3
     private static let windowDetectionDaysRequired: Double = 7
 
@@ -123,7 +129,12 @@ final class UsageOptimiser {
         let velocity = sessionVelocity()
         let sError = sessionError(poll, target: target)
         let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
-        let sDev = sessionDeviation(poll, target: target)
+        let sDev = sessionDeviation(
+            poll,
+            target: target,
+            optimalRate: optimal,
+            currentRate: velocity
+        )
         let dDev = dailyDeviation(poll)
         let dRemaining = dailyBudgetRemaining(poll)
 
@@ -274,7 +285,7 @@ final class UsageOptimiser {
         return rate
     }
 
-    // MARK: - Session Error (shared by calibrator + dual bar)
+    // MARK: - Session Error (shared by calibrator)
 
     private func sessionError(_ poll: Poll, target: Double) -> Double {
         guard poll.sessionRemaining > 0 else { return 0 }
@@ -285,7 +296,12 @@ final class UsageOptimiser {
         return (poll.sessionUsage - expectedUsage) / max(100 * remainingFrac, 1)
     }
 
-    private func sessionDeviation(_ poll: Poll, target: Double) -> Double {
+    private func sessionDeviation(
+        _ poll: Poll,
+        target: Double,
+        optimalRate: Double,
+        currentRate: Double?
+    ) -> Double {
         guard poll.sessionRemaining > 0 else { return 0 }
 
         let elapsedMinutes = Self.sessionMinutes - poll.sessionRemaining
@@ -293,21 +309,33 @@ final class UsageOptimiser {
 
         let usageFrac = poll.sessionUsage / 100
         let elapsedFrac = elapsedMinutes / Self.sessionMinutes
-        let delta = usageFrac - (target / 100) * elapsedFrac
+        let targetFrac = target / 100
 
-        // Behind pace: constant 2× keeps the reading stable across the whole
-        // session (no normalizer that blows up at either extreme).
-        // Ahead of pace: scale against remaining headroom so the over-pacing
-        // signal ramps up as the session budget runs out.
-        let raw: Double
-        if delta >= 0 {
-            let normalizer = max(poll.sessionRemaining / Self.sessionMinutes, 0.1)
-            raw = tanh(delta / normalizer)
+        // Bias the displayed pace toward the weekly target without letting it
+        // overwhelm what the session bars are actually showing.
+        let targetInfluence = min(
+            (1 - targetFrac) * Self.sessionTargetInfluenceGain,
+            Self.sessionTargetInfluenceMax
+        )
+        let blendedExpectedFrac = elapsedFrac * (1 - targetInfluence)
+            + (targetFrac * elapsedFrac) * targetInfluence
+        let positionScore = tanh((usageFrac - blendedExpectedFrac) / Self.sessionDeviationPositionScale)
+
+        let combined: Double
+        if let currentRate {
+            let rateScore = tanh((currentRate - optimalRate) / Self.sessionDeviationRateScale)
+            let rateWeight = min(
+                Self.sessionDeviationRateWeightMax,
+                elapsedFrac * Self.sessionDeviationRateWeightMax
+            )
+            combined = (1 - rateWeight) * positionScore + rateWeight * rateScore
         } else {
-            raw = tanh(2 * delta)
+            combined = positionScore
         }
 
-        return raw > 0 ? min(raw * exp(pow(usageFrac, 8)), 1) : raw
+        return abs(combined) < Self.sessionDeviationDeadZone
+            ? 0
+            : max(-1, min(1, combined))
     }
 
     // MARK: - Stage 4: Calibrator (PB+Pipe)
