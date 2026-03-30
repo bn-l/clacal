@@ -27,6 +27,13 @@ zplansprev
 
 # Python
 __pycache__/
+*.py[oc]
+**/.venv
+*.egg-info
+.ruff_cache/
+
+# Manim
+manim-anim/media/
 
 # Claude related
 **/.claude
