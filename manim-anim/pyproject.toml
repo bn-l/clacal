@@ -1,0 +1,59 @@
+[project]
+name = "manim-anim"
+version = "0.0.1"
+description = "Manim animation showcasing Clacal menu bar widget"
+readme = "README.md"
+requires-python = "==3.12.*"
+dependencies = [
+    "manim>=0.20.1",
+]
+
+
+[build-system]
+requires = ["uv_build>=0.10.9,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.407",
+    "pytest>=9.0.2",
+    "ruff>=0.14.10",
+]
+
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+target-version = "py312"
+exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "I",   # isort
+    "N",   # pep8-naming
+    "TCH", # flake8-type-checking
+    "FA",  # flake8-future-annotations
+]
+ignore = [
+    "E501", # Line too long
+    "F841", # Unused vars
+]
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"

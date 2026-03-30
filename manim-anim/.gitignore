@@ -1,0 +1,41 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+**/.venv
+
+# Environment variables
+**/.env
+
+.ruff_cache/
+
+# Editor directories and files
+**/.vscode/*
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Claude related
+src.md
+**/CLAUDE.md
+**/.claude
+**/AGENTS.md
+**/.agent/
+REPOMAP.md
+CODEGUIDE.md
+**/.cursor
+.mcp.json
+
+.editorconfig
+
+# Manim output
+media/
