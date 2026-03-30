@@ -2,6 +2,8 @@
 
 <p align="center">
   <img src="assets/demo.webp" alt="Clacal menu bar widget demo" width="720" />
+  <br>
+  <sub>Animation created with <a href="https://github.com/ManimCommunity/manim">Manim</a> (Community Edition)</sub>
 </p>
 
 A macOS menu bar app that tracks your [Claude Code](https://docs.anthropic.com/en/docs/claude-code) usage in real time. It polls the Anthropic OAuth usage API and shows an at-a-glance icon so you can pace yourself across sessions and the weekly window.
