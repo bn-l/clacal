@@ -3,7 +3,7 @@ import Foundation
 struct UsageStats: Sendable {
     struct WeeklyEntry: Sendable, Identifiable {
         let id = UUID()
-        let weekStart: Date
+        let windowEnd: Date
         let utilization: Double
     }
 

@@ -9,12 +9,42 @@ struct Poll: Codable, Sendable {
     let sessionRemaining: Double
     let weeklyUsage: Double
     let weeklyRemaining: Double
+    let weeklyResetAt: Date?
+
+    init(
+        timestamp: Date,
+        sessionUsage: Double,
+        sessionRemaining: Double,
+        weeklyUsage: Double,
+        weeklyRemaining: Double,
+        weeklyResetAt: Date? = nil
+    ) {
+        self.timestamp = timestamp
+        self.sessionUsage = sessionUsage
+        self.sessionRemaining = sessionRemaining
+        self.weeklyUsage = weeklyUsage
+        self.weeklyRemaining = weeklyRemaining
+        self.weeklyResetAt = weeklyResetAt
+    }
 }
 
 struct SessionStart: Codable, Sendable {
     let timestamp: Date
     let weeklyUsage: Double
     let weeklyRemaining: Double
+    let weeklyResetAt: Date?
+
+    init(
+        timestamp: Date,
+        weeklyUsage: Double,
+        weeklyRemaining: Double,
+        weeklyResetAt: Date? = nil
+    ) {
+        self.timestamp = timestamp
+        self.weeklyUsage = weeklyUsage
+        self.weeklyRemaining = weeklyRemaining
+        self.weeklyResetAt = weeklyResetAt
+    }
 }
 
 struct DailySnapshot: Codable, Sendable {

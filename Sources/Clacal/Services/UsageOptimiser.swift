@@ -48,6 +48,9 @@ final class UsageOptimiser {
     private static let dayResetHour = 5 // 5am local time
     private static let idleGraceMinutes: Double = 30
     private static let maxActivityDays = 365
+    private static let weeklyResetTolerance: TimeInterval = 5 * 60
+    private static let weeklyTransientMaxPolls = 12
+    private static let weeklyTransientMaxDuration: TimeInterval = 2 * 3600
 
     private(set) var polls: [Poll]
     private(set) var sessionStarts: [SessionStart]
@@ -96,6 +99,7 @@ final class UsageOptimiser {
         sessionRemaining: Double,
         weeklyUsage: Double,
         weeklyRemaining: Double,
+        weeklyResetAt: Date? = nil,
         timestamp: Date = Date()
     ) -> OptimiserResult {
         let poll = Poll(
@@ -103,7 +107,8 @@ final class UsageOptimiser {
             sessionUsage: sessionUsage,
             sessionRemaining: sessionRemaining,
             weeklyUsage: weeklyUsage,
-            weeklyRemaining: weeklyRemaining
+            weeklyRemaining: weeklyRemaining,
+            weeklyResetAt: weeklyResetAt
         )
 
         let isNewSession = detectSessionBoundary(poll)
@@ -111,7 +116,8 @@ final class UsageOptimiser {
             sessionStarts.append(SessionStart(
                 timestamp: timestamp,
                 weeklyUsage: weeklyUsage,
-                weeklyRemaining: weeklyRemaining
+                weeklyRemaining: weeklyRemaining,
+                weeklyResetAt: weeklyResetAt
             ))
             pacingZone = .ok
             prevCalOutput = 0
@@ -555,7 +561,7 @@ final class UsageOptimiser {
         if let existing = dailySnapshot {
             let existingBoundary = dayBoundary(for: existing.date, calendar: calendar)
             let weeklyReset = polls.count >= 2
-                && poll.weeklyRemaining - polls[polls.count - 2].weeklyRemaining > 60
+                && didWeeklyReset(from: polls[polls.count - 2], to: poll)
             guard boundary > existingBoundary || weeklyReset else { return }
         }
 
@@ -574,6 +580,75 @@ final class UsageOptimiser {
         return hour < Self.dayResetHour
             ? boundary.addingTimeInterval(-86400)
             : boundary
+    }
+
+    private struct WeeklyWindowSegment {
+        var resetAt: Date
+        var polls: [Poll]
+
+        var pollCount: Int { polls.count }
+        var duration: TimeInterval {
+            guard let first = polls.first, let last = polls.last else { return 0 }
+            return last.timestamp.timeIntervalSince(first.timestamp)
+        }
+        var maxUtilization: Double {
+            polls.map(\.weeklyUsage).max() ?? 0
+        }
+
+        mutating func append(_ poll: Poll, resetAt: Date) {
+            let weight = Double(polls.count)
+            let blended = (self.resetAt.timeIntervalSince1970 * weight + resetAt.timeIntervalSince1970) / (weight + 1)
+            self.resetAt = Date(timeIntervalSince1970: blended)
+            polls.append(poll)
+        }
+    }
+
+    private func resolvedWeeklyResetAt(for poll: Poll) -> Date {
+        poll.weeklyResetAt ?? poll.timestamp.addingTimeInterval(poll.weeklyRemaining * 60)
+    }
+
+    private func weekStart(for poll: Poll) -> Date {
+        resolvedWeeklyResetAt(for: poll).addingTimeInterval(-Self.weekMinutes * 60)
+    }
+
+    private func isSameWeeklyWindow(_ lhs: Date, _ rhs: Date) -> Bool {
+        abs(lhs.timeIntervalSince(rhs)) <= Self.weeklyResetTolerance
+    }
+
+    private func isTransientWeeklySegment(_ segment: WeeklyWindowSegment) -> Bool {
+        segment.pollCount <= Self.weeklyTransientMaxPolls
+            && segment.duration <= Self.weeklyTransientMaxDuration
+    }
+
+    private func didWeeklyReset(from previous: Poll, to current: Poll) -> Bool {
+        guard current.weeklyRemaining - previous.weeklyRemaining > 60 else { return false }
+
+        let previousResetAt = resolvedWeeklyResetAt(for: previous)
+        let currentResetAt = resolvedWeeklyResetAt(for: current)
+        let resetMovedForward = currentResetAt.timeIntervalSince(previousResetAt) > Self.weeklyResetTolerance
+        let usageRestarted = current.weeklyUsage <= previous.weeklyUsage
+
+        return resetMovedForward && usageRestarted
+    }
+
+    private func weeklyWindowSegments() -> [WeeklyWindowSegment] {
+        var segments: [WeeklyWindowSegment] = []
+
+        for poll in polls {
+            let resetAt = resolvedWeeklyResetAt(for: poll)
+            if let index = segments.firstIndex(where: { isSameWeeklyWindow($0.resetAt, resetAt) }) {
+                segments[index].append(poll, resetAt: resetAt)
+            } else {
+                segments.append(.init(resetAt: resetAt, polls: [poll]))
+            }
+        }
+
+        for index in segments.indices {
+            segments[index].polls.sort { $0.timestamp < $1.timestamp }
+        }
+        segments.sort { $0.resetAt < $1.resetAt }
+
+        return segments
     }
 
     // DEVLOG: Do NOT uncomment the time-proportional (active-hours) version below.
@@ -671,6 +746,7 @@ final class UsageOptimiser {
         let calendar = Calendar.current
         let now = Date()
         let todayBound = dayBoundary(for: now, calendar: calendar)
+        let weeklySegments = weeklyWindowSegments()
 
         // Avg session usage — peak usage of each *completed* session
         var sessionPeaks: [Double] = []
@@ -697,10 +773,16 @@ final class UsageOptimiser {
 
         // Week average per day
         let hoursWeekAvg: UsageStats.HoursPair?
-        if let latest = polls.last {
-            let weekElapsed = Self.weekMinutes - latest.weeklyRemaining
-            let weekStart = latest.timestamp.addingTimeInterval(-weekElapsed * 60)
-            let daysThisWeek = max(now.timeIntervalSince(weekStart) / 86400, 1)
+        let currentWeekStart: Date?
+        if let currentSegment = weeklySegments.last,
+           currentSegment.resetAt > now,
+           !isTransientWeeklySegment(currentSegment) {
+            currentWeekStart = currentSegment.resetAt.addingTimeInterval(-Self.weekMinutes * 60)
+        } else {
+            currentWeekStart = polls.last.map(weekStart(for:))
+        }
+        if let weekStart = currentWeekStart {
+            let daysThisWeek = max(now.timeIntervalSince(weekStart) / 86400.0, 1.0)
             let weekEntries = dailyActivities.filter { $0.date >= weekStart }
             let weekActive = weekEntries.reduce(0.0) { $0 + $1.activeMinutes } / 60
             let weekTotal = weekEntries.reduce(0.0) { $0 + $1.activeMinutes + $1.idleMinutes } / 60
@@ -720,31 +802,16 @@ final class UsageOptimiser {
             hoursAllTimeAvg = nil
         }
 
-        // Weekly utilization history — detect resets (weeklyRemaining jumps >60min)
-        var weeklyHistory: [UsageStats.WeeklyEntry] = []
-        for i in 1..<polls.count {
-            let jump = polls[i].weeklyRemaining - polls[i - 1].weeklyRemaining
-            if jump > 60, polls[i - 1].weeklyRemaining > 0 {
-                let util = polls[i - 1].weeklyUsage
-                let elapsed = Self.weekMinutes - polls[i - 1].weeklyRemaining
-                let weekStart = polls[i - 1].timestamp.addingTimeInterval(-elapsed * 60)
-                weeklyHistory.append(.init(weekStart: weekStart, utilization: util))
+        // Weekly utilization history — use stable reset windows and show completed windows only.
+        var weeklyHistory = weeklySegments
+            .filter { $0.resetAt <= now }
+            .filter { !isTransientWeeklySegment($0) }
+            .compactMap { segment -> UsageStats.WeeklyEntry? in
+                let utilization = segment.maxUtilization
+                guard utilization > 0 else { return nil }
+                return .init(windowEnd: segment.resetAt, utilization: utilization)
             }
-        }
-
-        // Append current week
-        if let latest = polls.last {
-            let elapsed = Self.weekMinutes - latest.weeklyRemaining
-            let weekStart = latest.timestamp.addingTimeInterval(-elapsed * 60)
-            let isDuplicate = weeklyHistory.last.map {
-                abs(weekStart.timeIntervalSince($0.weekStart)) < 86400
-            } ?? false
-            if !isDuplicate {
-                weeklyHistory.append(.init(weekStart: weekStart, utilization: latest.weeklyUsage))
-            }
-        }
-
-        weeklyHistory.reverse()
+            .sorted { $0.windowEnd > $1.windowEnd }
         if weeklyHistory.count > 6 { weeklyHistory = Array(weeklyHistory.prefix(6)) }
 
         return UsageStats(

@@ -76,6 +76,7 @@ final class UsageMonitor {
         weeklyUsagePct: Double,
         sessionMinsLeft: Double,
         weeklyMinsLeft: Double,
+        weeklyResetAt: Date? = nil,
         isSessionActive: Bool = true
     ) {
         logger.debug("Raw values: sessionUsagePct=\(sessionUsagePct, privacy: .public) weeklyUsagePct=\(weeklyUsagePct, privacy: .public) sessionMinsLeft=\(sessionMinsLeft, privacy: .public) weeklyMinsLeft=\(weeklyMinsLeft, privacy: .public)")
@@ -86,7 +87,8 @@ final class UsageMonitor {
             sessionUsage: sessionUsagePct,
             sessionRemaining: sessionMinsLeft,
             weeklyUsage: weeklyUsagePct,
-            weeklyRemaining: weeklyMinsLeft
+            weeklyRemaining: weeklyMinsLeft,
+            weeklyResetAt: weeklyResetAt
         )
 
         metrics = UsageMetrics(
@@ -148,12 +150,14 @@ final class UsageMonitor {
             if response.seven_day == nil {
                 logger.warning("API response missing seven_day window — defaulting to 0")
             }
+            let weeklyResetAt = parseISO8601Date(response.seven_day?.resets_at)
             let sessionMinsLeft = minutesUntil(response.five_hour?.resets_at)
             processResponse(
                 sessionUsagePct: response.five_hour?.utilization ?? 0,
                 weeklyUsagePct: response.seven_day?.utilization ?? 0,
                 sessionMinsLeft: sessionMinsLeft,
                 weeklyMinsLeft: minutesUntil(response.seven_day?.resets_at),
+                weeklyResetAt: weeklyResetAt,
                 isSessionActive: response.five_hour != nil && sessionMinsLeft > 0
             )
         } catch {
@@ -163,26 +167,30 @@ final class UsageMonitor {
     }
 
     func minutesUntil(_ isoString: String?) -> Double {
-        guard let str = isoString else {
-            logger.trace("minutesUntil: nil input")
+        guard let date = parseISO8601Date(isoString), let str = isoString else {
             return 0
+        }
+        let mins = max(date.timeIntervalSinceNow / 60, 0)
+        logger.trace("minutesUntil: input=\(str, privacy: .public) minutes=\(mins, privacy: .public)")
+        return mins
+    }
+
+    private func parseISO8601Date(_ isoString: String?) -> Date? {
+        guard let str = isoString else {
+            logger.trace("parseISO8601Date: nil input")
+            return nil
         }
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         if let date = formatter.date(from: str) {
-            let mins = max(date.timeIntervalSinceNow / 60, 0)
-            logger.trace("minutesUntil: input=\(str, privacy: .public) minutes=\(mins, privacy: .public)")
-            return mins
+            return date
         }
-        // Retry without fractional seconds
         formatter.formatOptions = [.withInternetDateTime]
-        guard let date = formatter.date(from: str) else {
-            logger.warning("Failed to parse ISO8601 date: input=\(str, privacy: .public)")
-            return 0
+        if let date = formatter.date(from: str) {
+            return date
         }
-        let mins = max(date.timeIntervalSinceNow / 60, 0)
-        logger.trace("minutesUntil (no frac): input=\(str, privacy: .public) minutes=\(mins, privacy: .public)")
-        return mins
+        logger.warning("Failed to parse ISO8601 date: input=\(str, privacy: .public)")
+        return nil
     }
 }
 

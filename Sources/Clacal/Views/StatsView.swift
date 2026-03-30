@@ -90,7 +90,7 @@ struct StatsView: View {
             VStack(spacing: 6) {
                 ForEach(stats.weeklyHistory) { entry in
                     HStack(spacing: 8) {
-                        Text(entry.weekStart, format: .dateTime.month(.abbreviated).day())
+                        Text(entry.windowEnd, format: .dateTime.month(.abbreviated).day())
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                             .frame(width: 44, alignment: .leading)
