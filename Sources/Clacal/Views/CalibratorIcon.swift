@@ -94,7 +94,8 @@ struct CalibratorIcon: View {
                 let hue = CGFloat(remaining) * (120.0 / 360.0)
                 let color = NSColor(hue: hue, saturation: 0.6, brightness: 0.925, alpha: 1.0).cgColor
                 ctx.setFillColor(color)
-                ctx.fill(CGRect(x: barWidth + gap, y: 0, width: barWidth, height: gaugeHeight))
+                let gaugeY = (size - gaugeHeight) / 2
+                ctx.fill(CGRect(x: barWidth + gap, y: gaugeY, width: barWidth, height: gaugeHeight))
             }
 
             // Center line — left (session deviation) bar only
@@ -120,15 +121,15 @@ struct CalibratorIcon: View {
         ctx.setFillColor(NSColor.white.cgColor)
 
         if clamped > 0 {
-            // Upward arrow, tip at top edge
-            ctx.move(to: CGPoint(x: barX + barWidth / 2, y: size))
-            ctx.addLine(to: CGPoint(x: barX, y: size - arrowHeight))
-            ctx.addLine(to: CGPoint(x: barX + barWidth, y: size - arrowHeight))
-        } else {
-            // Downward arrow, tip at bottom edge
+            // Downward arrow at bottom edge (bar is above)
             ctx.move(to: CGPoint(x: barX + barWidth / 2, y: 0))
             ctx.addLine(to: CGPoint(x: barX, y: arrowHeight))
             ctx.addLine(to: CGPoint(x: barX + barWidth, y: arrowHeight))
+        } else {
+            // Upward arrow at top edge (bar is below)
+            ctx.move(to: CGPoint(x: barX + barWidth / 2, y: size))
+            ctx.addLine(to: CGPoint(x: barX, y: size - arrowHeight))
+            ctx.addLine(to: CGPoint(x: barX + barWidth, y: size - arrowHeight))
         }
 
         ctx.closePath()
