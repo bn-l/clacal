@@ -34,6 +34,16 @@ run: app
 test:
     xcodebuild test -project Clacal.xcodeproj -scheme Clacal -destination 'platform=macOS,arch=arm64'
 
+# Fast validation suite
+validate-fast:
+    mkdir -p .build/validation/fast
+    CLACAL_VALIDATION_OUTPUT_DIR=.build/validation/fast swift test --filter ValidationFast
+
+# Exhaustive validation sweep
+validate-sweep:
+    mkdir -p .build/validation/sweep
+    CLACAL_VALIDATION_OUTPUT_DIR=.build/validation/sweep CLACAL_VALIDATION_STRICT=1 swift test --filter ValidationSweep
+
 # Clear all data (legacy SQLite + active JSON store)
 clear-db:
     rm -f ~/.config/clacal/history.db

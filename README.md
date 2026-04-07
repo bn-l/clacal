@@ -34,6 +34,12 @@ just run   # build and open the app
 ## Install
 
 ```bash
+brew install bn-l/tap/clacal
+```
+
+Or build from source:
+
+```bash
 just dmg   # creates build/Clacal.dmg
 ```
 

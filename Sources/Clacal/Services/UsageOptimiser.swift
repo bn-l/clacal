@@ -3,10 +3,6 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.bml.clacal", category: "Optimiser")
 
-private enum PacingZone {
-    case ok, fast, slow
-}
-
 struct OptimiserResult: Sendable {
     let calibrator: Double
     let target: Double
@@ -19,38 +15,39 @@ struct OptimiserResult: Sendable {
     let sessionDeviation: Double
     let dailyDeviation: Double
     let dailyBudgetRemaining: Double
+    let debug: PacingDecisionBreakdown
 }
 
 @MainActor
 final class UsageOptimiser {
-    static let sessionMinutes: Double = 300
-    static let weekMinutes: Double = 10080
+    static let sessionMinutes = PacingKernelConstants.sessionMinutes
+    static let weekMinutes = PacingKernelConstants.weekMinutes
 
     private static let maxDays = 90
     private static let emaAlpha = 0.3
     private static let gapThresholdMinutes: Double = 15
     private static let boundaryJumpMinutes: Double = 30
-    private static let minActiveHoursForProjection: Double = 0.5
+    private static let minActiveHoursForProjection = PacingKernelConstants.minActiveHoursForProjection
     private static let minExchangeRateSamples = 10
-    private static let empiricalWeeksRequired: Double = 3
-    private static let empiricalMinSamples = 5
-    private static let sessionTargetInfluenceGain: Double = 0.35
-    private static let sessionTargetInfluenceMax: Double = 0.25
-    private static let sessionDeviationPositionScale: Double = 0.25
-    private static let sessionDeviationRateScale: Double = 0.35
-    private static let sessionDeviationRateWeightMax: Double = 0.15
-    private static let sessionDeviationDeadZone: Double = 0.05
-    private static let sessionDeviationHighUsageThreshold: Double = 0.9
-    private static let sessionDeviationHighUsageBoostMax: Double = 0.35
+    private static let empiricalWeeksRequired = PacingKernelConstants.empiricalWeeksRequired
+    private static let empiricalMinSamples = PacingKernelConstants.empiricalMinSamples
+    private static let sessionTargetInfluenceGain = PacingKernelConstants.sessionTargetInfluenceGain
+    private static let sessionTargetInfluenceMax = PacingKernelConstants.sessionTargetInfluenceMax
+    private static let sessionDeviationPositionScale = PacingKernelConstants.sessionDeviationPositionScale
+    private static let sessionDeviationRateScale = PacingKernelConstants.sessionDeviationRateScale
+    private static let sessionDeviationRateWeightMax = PacingKernelConstants.sessionDeviationRateWeightMax
+    private static let sessionDeviationDeadZone = PacingKernelConstants.sessionDeviationDeadZone
+    private static let sessionDeviationHighUsageThreshold = PacingKernelConstants.sessionDeviationHighUsageThreshold
+    private static let sessionDeviationHighUsageBoostMax = PacingKernelConstants.sessionDeviationHighUsageBoostMax
     private static let windowDetectionMinPolls = 3
     private static let windowDetectionDaysRequired: Double = 7
 
     private static let dayResetHour = 5 // 5am local time
     private static let idleGraceMinutes: Double = 30
     private static let maxActivityDays = 365
-    private static let weeklyResetTolerance: TimeInterval = 5 * 60
-    private static let weeklyTransientMaxPolls = 12
-    private static let weeklyTransientMaxDuration: TimeInterval = 2 * 3600
+    private static let weeklyResetTolerance = PacingKernelConstants.weeklyResetTolerance
+    private static let weeklyTransientMaxPolls = PacingKernelConstants.weeklyTransientMaxPolls
+    private static let weeklyTransientMaxDuration = PacingKernelConstants.weeklyTransientMaxDuration
 
     private(set) var polls: [Poll]
     private(set) var sessionStarts: [SessionStart]
@@ -58,7 +55,8 @@ final class UsageOptimiser {
     private(set) var dailyActivities: [DailyActivity]
     private var detectedWindows: [(start: Double, end: Double)]
     private let persistURL: URL?
-    private var pacingZone: PacingZone = .ok
+    private let timeZone: TimeZone
+    private var pacingZone: PacingZoneState = .ok
     private var prevCalOutput: Double = 0
 
     // Idle tracking state
@@ -68,17 +66,31 @@ final class UsageOptimiser {
     init(
         data: StoreData = StoreData(),
         activeHoursPerDay: [Double] = [10, 10, 10, 10, 10, 10, 10],
-        persistURL: URL? = nil
+        persistURL: URL? = nil,
+        timeZone: TimeZone = .current,
+        detectedWindows: [(start: Double, end: Double)]? = nil
     ) {
         self.polls = data.polls
         self.sessionStarts = data.sessions
         self.dailySnapshot = data.dailySnapshot
         self.dailyActivities = data.dailyActivities
         self.persistURL = persistURL
+        self.timeZone = timeZone
         // Normalise to exactly 7 entries (pad with 10h default, truncate excess)
         let padded = (activeHoursPerDay + Array(repeating: 10.0, count: 7)).prefix(7)
-        self.detectedWindows = padded.map { hours in
-            (start: 10.0, end: min(10.0 + hours, 24.0))
+        self.detectedWindows = Array(
+            (
+                detectedWindows
+                ?? padded.map { hours in
+                    (start: 10.0, end: min(10.0 + hours, 24.0))
+                }
+            )
+            .prefix(7)
+        )
+        if self.detectedWindows.count < 7 {
+            self.detectedWindows.append(
+                contentsOf: Array(repeating: (start: 10.0, end: 20.0), count: 7 - self.detectedWindows.count)
+            )
         }
 
         // Derive lastUsageGrowth from existing polls
@@ -127,41 +139,31 @@ final class UsageOptimiser {
         polls.append(poll)
         trackActivity(poll, isNewSession: isNewSession)
         pruneOldRecords()
-        maybeUpdateDetectedWindows()
+        maybeUpdateDetectedWindows(referenceDate: poll.timestamp)
         maybeUpdateDailySnapshot(poll)
 
-        let deviation = weeklyDeviation(poll)
-        let target = sessionTarget(deviation)
-        let budget = sessionBudget(poll)
-        let optimal = optimalRate(poll, target: target, budget: budget)
         let velocity = sessionVelocity()
-        let sError = sessionError(poll, target: target)
-        let cal = calibrator(sessionError: sError, deviation: deviation, poll: poll)
-        let sDev = sessionDeviation(
-            poll,
-            target: target,
-            optimalRate: optimal,
-            currentRate: velocity
-        )
-        let dDev = dailyDeviation(poll)
-        let dRemaining = dailyBudgetRemaining(poll)
+        let decision = decisionBreakdown(for: poll, currentRate: velocity)
+        pacingZone = decision.calibrator.updatedState.zone
+        prevCalOutput = decision.calibrator.updatedState.previousOutput
 
         persist()
 
-        logger.info("Poll recorded: calibrator=\(cal, privacy: .public) target=\(target, privacy: .public) optimalRate=\(optimal, privacy: .public) weeklyDev=\(deviation, privacy: .public) sessionDev=\(sDev, privacy: .public) dailyDev=\(dDev, privacy: .public) dailyRemaining=\(dRemaining, privacy: .public) newSession=\(isNewSession, privacy: .public)")
+        logger.info("Poll recorded: calibrator=\(decision.calibrator.smoothedOutput, privacy: .public) target=\(decision.sessionTarget.target, privacy: .public) optimalRate=\(decision.optimalRate.optimalRate, privacy: .public) weeklyDev=\(decision.weekly.finalDeviation, privacy: .public) sessionDev=\(decision.sessionDeviation.finalDeviation, privacy: .public) dailyDev=\(decision.dailyBudget.deviation, privacy: .public) dailyRemaining=\(decision.dailyBudget.remainingBudgetFraction, privacy: .public) newSession=\(isNewSession, privacy: .public)")
 
         return OptimiserResult(
-            calibrator: cal,
-            target: target,
-            optimalRate: optimal,
+            calibrator: decision.calibrator.smoothedOutput,
+            target: decision.sessionTarget.target,
+            optimalRate: decision.optimalRate.optimalRate,
             currentRate: velocity,
-            weeklyDeviation: deviation,
-            exchangeRate: exchangeRate(),
-            sessionBudget: budget,
+            weeklyDeviation: decision.weekly.finalDeviation,
+            exchangeRate: decision.sessionBudget?.exchangeRate,
+            sessionBudget: decision.sessionBudget?.budget,
             isNewSession: isNewSession,
-            sessionDeviation: sDev,
-            dailyDeviation: dDev,
-            dailyBudgetRemaining: dRemaining
+            sessionDeviation: decision.sessionDeviation.finalDeviation,
+            dailyDeviation: decision.dailyBudget.deviation,
+            dailyBudgetRemaining: decision.dailyBudget.remainingBudgetFraction,
+            debug: decision
         )
     }
 
@@ -181,6 +183,91 @@ final class UsageOptimiser {
 
     private var currentSessionStartTimestamp: Date? {
         sessionStarts.last?.timestamp
+    }
+
+    func debugState() -> PacingOptimiserDebugState {
+        .init(
+            polls: polls.map(\.pacingSample),
+            sessionStarts: sessionStarts.map(\.pacingSample),
+            dailySnapshot: dailySnapshot?.pacingSample,
+            dailyActivities: dailyActivities.map(\.pacingSample),
+            schedule: scheduleContext(),
+            calibratorState: currentCalibratorState()
+        )
+    }
+
+    func computeStats(now: Date) -> UsageStats {
+        computeStats(referenceDate: now)
+    }
+
+    private func scheduleContext() -> PacingScheduleContext {
+        .init(timeZone: timeZone, detectedWindows: detectedWindows)
+    }
+
+    private func calendar() -> Calendar {
+        scheduleContext().calendar
+    }
+
+    private func currentCalibratorState() -> PacingCalibratorState {
+        .init(zone: pacingZone, previousOutput: prevCalOutput)
+    }
+
+    private func decisionBreakdown(for poll: Poll, currentRate: Double?) -> PacingDecisionBreakdown {
+        let pollSample = poll.pacingSample
+        let schedule = scheduleContext()
+        let weekly = PacingKernel.weeklyBreakdown(
+            current: pollSample,
+            history: Array(polls.dropLast().map(\.pacingSample)),
+            schedule: schedule,
+            dataWeeks: dataWeeks()
+        )
+        let sessionTarget = PacingKernel.sessionTarget(for: weekly.finalDeviation)
+        let remainingActiveHours = PacingKernel.activeHoursInRange(
+            from: poll.timestamp,
+            to: poll.timestamp.addingTimeInterval(poll.weeklyRemaining * 60),
+            schedule: schedule
+        )
+        let budget = PacingKernel.sessionBudget(
+            current: pollSample,
+            exchangeRate: exchangeRate(),
+            remainingActiveHours: remainingActiveHours
+        )
+        let optimalRate = PacingKernel.optimalRate(
+            current: pollSample,
+            target: sessionTarget.target,
+            sessionBudget: budget
+        )
+        let sessionError = PacingKernel.sessionError(
+            current: pollSample,
+            target: sessionTarget.target
+        )
+        let sessionDeviation = PacingKernel.sessionDeviation(
+            current: pollSample,
+            target: sessionTarget.target,
+            optimalRate: optimalRate.optimalRate,
+            currentRate: currentRate
+        )
+        let dailyBudget = PacingKernel.dailyBudget(
+            current: pollSample,
+            snapshot: dailySnapshot?.pacingSample
+        )
+        let calibrator = PacingKernel.calibrator(
+            previousState: currentCalibratorState(),
+            sessionError: sessionError.error,
+            weeklyDeviation: weekly.finalDeviation,
+            current: pollSample
+        )
+
+        return .init(
+            weekly: weekly,
+            sessionTarget: sessionTarget,
+            sessionBudget: budget,
+            optimalRate: optimalRate,
+            sessionError: sessionError,
+            sessionDeviation: sessionDeviation,
+            dailyBudget: dailyBudget,
+            calibrator: calibrator
+        )
     }
 
     // MARK: - Stage 1: Weekly Deviation
@@ -486,43 +573,17 @@ final class UsageOptimiser {
     // MARK: - Active Hours Schedule
 
     func activeHoursInRange(from start: Date, to end: Date) -> Double {
-        var total: Double = 0
-        let calendar = Calendar.current
-        var cursor = start
-
-        while cursor < end {
-            // Calendar weekday: 1=Sun, 2=Mon, ..., 7=Sat
-            // We need: 0=Mon, 1=Tue, ..., 6=Sun
-            let calendarWeekday = calendar.component(.weekday, from: cursor)
-            let dayIndex = (calendarWeekday + 5) % 7
-
-            let window = detectedWindows[dayIndex]
-            let midnight = calendar.startOfDay(for: cursor)
-            let windowOpen = midnight.addingTimeInterval(window.start * 3600)
-            let windowClose = midnight.addingTimeInterval(window.end * 3600)
-            let nextDay = calendar.date(byAdding: .day, value: 1, to: midnight)!
-
-            let segmentEnd = min(end, nextDay)
-            let overlapStart = max(cursor, windowOpen)
-            let overlapEnd = min(segmentEnd, windowClose)
-
-            if overlapEnd > overlapStart {
-                total += overlapEnd.timeIntervalSince(overlapStart) / 3600
-            }
-
-            cursor = nextDay
-        }
-        return total
+        PacingKernel.activeHoursInRange(from: start, to: end, schedule: scheduleContext())
     }
 
     // MARK: - Window Auto-Detection
 
-    private func maybeUpdateDetectedWindows() {
+    private func maybeUpdateDetectedWindows(referenceDate: Date) {
         guard let firstPoll = polls.first else { return }
-        let daysSinceFirst = Date().timeIntervalSince(firstPoll.timestamp) / 86400
+        let daysSinceFirst = referenceDate.timeIntervalSince(firstPoll.timestamp) / 86400
         guard daysSinceFirst >= Self.windowDetectionDaysRequired else { return }
 
-        let calendar = Calendar.current
+        let calendar = calendar()
         var activeHoursByDay = Array(repeating: [Double](), count: 7)
 
         forEachPollPairWithinSession { previous, current in
@@ -555,7 +616,7 @@ final class UsageOptimiser {
     // MARK: - Daily Snapshot & Ratios
 
     private func maybeUpdateDailySnapshot(_ poll: Poll) {
-        let calendar = Calendar.current
+        let calendar = calendar()
         let boundary = dayBoundary(for: poll.timestamp, calendar: calendar)
 
         if let existing = dailySnapshot {
@@ -582,73 +643,22 @@ final class UsageOptimiser {
             : boundary
     }
 
-    private struct WeeklyWindowSegment {
-        var resetAt: Date
-        var polls: [Poll]
-
-        var pollCount: Int { polls.count }
-        var duration: TimeInterval {
-            guard let first = polls.first, let last = polls.last else { return 0 }
-            return last.timestamp.timeIntervalSince(first.timestamp)
-        }
-        var maxUtilization: Double {
-            polls.map(\.weeklyUsage).max() ?? 0
-        }
-
-        mutating func append(_ poll: Poll, resetAt: Date) {
-            let weight = Double(polls.count)
-            let blended = (self.resetAt.timeIntervalSince1970 * weight + resetAt.timeIntervalSince1970) / (weight + 1)
-            self.resetAt = Date(timeIntervalSince1970: blended)
-            polls.append(poll)
-        }
-    }
-
-    private func resolvedWeeklyResetAt(for poll: Poll) -> Date {
-        poll.weeklyResetAt ?? poll.timestamp.addingTimeInterval(poll.weeklyRemaining * 60)
-    }
-
     private func weekStart(for poll: Poll) -> Date {
-        resolvedWeeklyResetAt(for: poll).addingTimeInterval(-Self.weekMinutes * 60)
+        PacingKernel.resolvedWeeklyResetAt(for: poll.pacingSample)
+            .addingTimeInterval(-Self.weekMinutes * 60)
     }
 
-    private func isSameWeeklyWindow(_ lhs: Date, _ rhs: Date) -> Bool {
-        abs(lhs.timeIntervalSince(rhs)) <= Self.weeklyResetTolerance
-    }
-
-    private func isTransientWeeklySegment(_ segment: WeeklyWindowSegment) -> Bool {
-        segment.pollCount <= Self.weeklyTransientMaxPolls
-            && segment.duration <= Self.weeklyTransientMaxDuration
+    private func isTransientWeeklySegment(_ segment: PacingWeeklyWindowSegment) -> Bool {
+        segment.pollCount <= PacingKernelConstants.weeklyTransientMaxPolls
+            && segment.duration <= PacingKernelConstants.weeklyTransientMaxDuration
     }
 
     private func didWeeklyReset(from previous: Poll, to current: Poll) -> Bool {
-        guard current.weeklyRemaining - previous.weeklyRemaining > 60 else { return false }
-
-        let previousResetAt = resolvedWeeklyResetAt(for: previous)
-        let currentResetAt = resolvedWeeklyResetAt(for: current)
-        let resetMovedForward = currentResetAt.timeIntervalSince(previousResetAt) > Self.weeklyResetTolerance
-        let usageRestarted = current.weeklyUsage <= previous.weeklyUsage
-
-        return resetMovedForward && usageRestarted
+        PacingKernel.didWeeklyReset(previous: previous.pacingSample, current: current.pacingSample)
     }
 
-    private func weeklyWindowSegments() -> [WeeklyWindowSegment] {
-        var segments: [WeeklyWindowSegment] = []
-
-        for poll in polls {
-            let resetAt = resolvedWeeklyResetAt(for: poll)
-            if let index = segments.firstIndex(where: { isSameWeeklyWindow($0.resetAt, resetAt) }) {
-                segments[index].append(poll, resetAt: resetAt)
-            } else {
-                segments.append(.init(resetAt: resetAt, polls: [poll]))
-            }
-        }
-
-        for index in segments.indices {
-            segments[index].polls.sort { $0.timestamp < $1.timestamp }
-        }
-        segments.sort { $0.resetAt < $1.resetAt }
-
-        return segments
+    private func weeklyWindowSegments() -> [PacingWeeklyWindowSegment] {
+        PacingKernel.weeklyWindowSegments(polls: polls.map(\.pacingSample))
     }
 
     // DEVLOG: Do NOT uncomment the time-proportional (active-hours) version below.
@@ -679,7 +689,7 @@ final class UsageOptimiser {
     // MARK: - Idle Tracking
 
     private func trackActivity(_ poll: Poll, isNewSession: Bool) {
-        let calendar = Calendar.current
+        let calendar = calendar()
 
         // Reset on new session — commit pending as idle
         if isNewSession {
@@ -743,8 +753,11 @@ final class UsageOptimiser {
     // MARK: - Stats
 
     func computeStats() -> UsageStats {
-        let calendar = Calendar.current
-        let now = Date()
+        computeStats(referenceDate: Date())
+    }
+
+    private func computeStats(referenceDate now: Date) -> UsageStats {
+        let calendar = calendar()
         let todayBound = dayBoundary(for: now, calendar: calendar)
         let weeklySegments = weeklyWindowSegments()
 
@@ -803,14 +816,11 @@ final class UsageOptimiser {
         }
 
         // Weekly utilization history — use stable reset windows and show completed windows only.
-        var weeklyHistory = weeklySegments
-            .filter { $0.resetAt <= now }
-            .filter { !isTransientWeeklySegment($0) }
-            .compactMap { segment -> UsageStats.WeeklyEntry? in
-                let utilization = segment.maxUtilization
-                guard utilization > 0 else { return nil }
-                return .init(windowEnd: segment.resetAt, utilization: utilization)
-            }
+        var weeklyHistory = PacingKernel.weeklyHistory(
+            polls: polls.map(\.pacingSample),
+            now: now
+        )
+            .map { UsageStats.WeeklyEntry(windowEnd: $0.windowEnd, utilization: $0.utilization) }
             .sorted { $0.windowEnd > $1.windowEnd }
         if weeklyHistory.count > 6 { weeklyHistory = Array(weeklyHistory.prefix(6)) }
 
