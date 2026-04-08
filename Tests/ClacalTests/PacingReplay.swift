@@ -1,4 +1,5 @@
 import Foundation
+@testable import Clacal
 
 enum PacingValidationFailureKind: String, Codable, Sendable, CaseIterable {
     case wrongDirectionOnPace
@@ -7,7 +8,6 @@ enum PacingValidationFailureKind: String, Codable, Sendable, CaseIterable {
     case completedWeekDuplicated
     case transientArtifactCreatedWeek
     case empiricalResetBucketMismatch
-    case unstableExpectationSourceUnderJitter
     case statsWindowEndMismatch
 }
 
@@ -136,6 +136,9 @@ enum PacingReplayRunner {
                 weeklyResetAt: step.weeklyResetAt,
                 timestamp: step.timestamp
             )
+            guard let decision = optimiser.lastDecisionBreakdown else {
+                preconditionFailure("recordPoll must populate lastDecisionBreakdown")
+            }
             observations.append(
                 .init(
                     stepIndex: index,
@@ -153,7 +156,7 @@ enum PacingReplayRunner {
                     dailyDeviation: result.dailyDeviation,
                     dailyBudgetRemaining: result.dailyBudgetRemaining,
                     exchangeRate: result.exchangeRate,
-                    debug: result.debug
+                    debug: decision
                 )
             )
         }

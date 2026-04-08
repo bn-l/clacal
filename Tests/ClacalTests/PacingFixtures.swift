@@ -1,4 +1,5 @@
 import Foundation
+@testable import Clacal
 
 enum PacingFixtureLibrary {
     static func allFixtures() -> [PacingValidationFixture] {

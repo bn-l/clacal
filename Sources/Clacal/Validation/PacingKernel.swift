@@ -27,8 +27,7 @@ enum PacingKernel {
     }
 
     static func inferredWeekStart(for poll: PacingPollSample) -> Date {
-        let elapsedMinutes = PacingKernelConstants.weekMinutes - poll.weeklyRemaining
-        return poll.timestamp.addingTimeInterval(-elapsedMinutes * 60)
+        resolvedWeeklyResetAt(for: poll).addingTimeInterval(-PacingKernelConstants.weekMinutes * 60)
     }
 
     static func activeHoursInRange(
@@ -304,6 +303,10 @@ enum PacingKernel {
         )
     }
 
+    // DEVLOG: Daily budget is intentionally a simple ratio of today's usage vs the
+    // full-day allotment — it answers "how much of today's budget have I used?" not
+    // "am I on pace through the day?" The time-proportional (active-hours) version
+    // was tried and reverted.
     static func dailyBudget(
         current poll: PacingPollSample,
         snapshot: PacingDailySnapshotSample?
@@ -470,10 +473,15 @@ enum PacingKernel {
         return segments
             .map { segment in
                 let ordered = segment.polls.sorted { $0.timestamp < $1.timestamp }
+                let duration: TimeInterval = if let first = ordered.first, let last = ordered.last {
+                    last.timestamp.timeIntervalSince(first.timestamp)
+                } else {
+                    0
+                }
                 return PacingWeeklyWindowSegment(
                     resetAt: segment.resetAt,
                     pollCount: ordered.count,
-                    duration: ordered.last?.timestamp.timeIntervalSince(ordered.first?.timestamp ?? segment.resetAt) ?? 0,
+                    duration: duration,
                     maxUtilization: ordered.map(\.weeklyUsage).max() ?? 0
                 )
             }

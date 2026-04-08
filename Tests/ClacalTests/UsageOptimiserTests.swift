@@ -220,15 +220,16 @@ struct OptimiserSessionTargetTests {
 
     @Test("On schedule (deviation ~0): target = 100")
     func onScheduleFullTarget() {
-        let opt = makeTestOptimiser()
+        let opt = makeTestOptimiser(
+            timeZone: .gmt,
+            detectedWindows: Array(repeating: (start: 0.0, end: 24.0), count: 7)
+        )
         let result = opt.recordPoll(
             sessionUsage: 0, sessionRemaining: 300,
             weeklyUsage: 50, weeklyRemaining: 5040
         )
-        // When deviation >= 0, target = 100
-        if result.weeklyDeviation >= 0 {
-            #expect(result.target == 100)
-        }
+        #expect(approxEqual(result.weeklyDeviation, 0))
+        #expect(result.target == 100)
     }
 
     @Test("Target never drops below 10")
@@ -678,7 +679,10 @@ struct OptimiserSessionDeviationTests {
 
     @Test("Near parity with neutral weekly pressure stays near neutral")
     func nearParityNeutralWeekly() {
-        let opt = makeTestOptimiser()
+        let opt = makeTestOptimiser(
+            timeZone: .gmt,
+            detectedWindows: Array(repeating: (start: 0.0, end: 24.0), count: 7)
+        )
         let result = opt.recordPoll(
             sessionUsage: 70, sessionRemaining: 90,
             weeklyUsage: 50, weeklyRemaining: 5040

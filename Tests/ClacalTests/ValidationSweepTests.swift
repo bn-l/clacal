@@ -6,12 +6,18 @@ import Testing
 @MainActor
 struct ValidationSweepTests {
     @Test("Sweep matrix is deterministic and complete")
-    func sweepMatrixIsDeterministic() {
+    func sweepMatrixIsDeterministic() throws {
         let lhs = PacingSweepRunner.scenarios(seed: 20_260_407)
         let rhs = PacingSweepRunner.scenarios(seed: 20_260_407)
 
         #expect(lhs.count == 1_080)
-        #expect(lhs.map(\.name) == rhs.map(\.name))
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
+        let lhsData = try encoder.encode(lhs)
+        let rhsData = try encoder.encode(rhs)
+        #expect(lhsData == rhsData)
     }
 
     @Test("Sweep runner exports reports and optionally gates on failures")

@@ -1,4 +1,5 @@
 import Foundation
+@testable import Clacal
 
 enum PacingUsageProfile: String, Codable, Sendable, CaseIterable {
     case onPace

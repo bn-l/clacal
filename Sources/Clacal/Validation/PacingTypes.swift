@@ -63,7 +63,7 @@ struct PacingScheduleContext: Codable, Sendable, Equatable {
     }
 
     var timeZone: TimeZone {
-        TimeZone(identifier: timeZoneIdentifier) ?? .current
+        TimeZone(identifier: timeZoneIdentifier) ?? .gmt
     }
 
     var calendar: Calendar {
