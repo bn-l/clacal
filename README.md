@@ -43,6 +43,12 @@ The Homebrew cask also installs a `clacal` CLI. Run it with no arguments to fetc
 clacal
 ```
 
+Add `--stats` for usage statistics and `--history` for weekly history:
+
+```bash
+clacal --stats --history
+```
+
 Or build from source:
 
 ```bash
