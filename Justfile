@@ -6,16 +6,20 @@ default: app
 # Build Clacal.app bundle to ./build/
 app:
     @mkdir -p build
-    xcodebuild -project Clacal.xcodeproj -scheme Clacal -configuration Debug -destination 'platform=macOS,arch=arm64' -quiet
-    @rm -rf build/Clacal.app
-    @cp -R ~/Library/Developer/Xcode/DerivedData/Clacal-*/Build/Products/Debug/Clacal.app build/
+    xcodebuild -project Clacal.xcodeproj -scheme Clacal -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath build/DerivedData -quiet
+    @for path in build/Clacal.app; do [ ! -e "$path" ] || trash "$path"; done
+    @cp -R build/DerivedData/Build/Products/Debug/Clacal.app build/
+    @test -x build/Clacal.app/Contents/MacOS/Clacal
+    @test -x build/Clacal.app/Contents/MacOS/clacal-cli
 
 # Build release app bundle
 app-release:
     @mkdir -p build
-    xcodebuild -project Clacal.xcodeproj -scheme Clacal -configuration Release -destination 'platform=macOS,arch=arm64' -quiet
-    @rm -rf build/Clacal.app
-    @cp -R ~/Library/Developer/Xcode/DerivedData/Clacal-*/Build/Products/Release/Clacal.app build/
+    xcodebuild -project Clacal.xcodeproj -scheme Clacal -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath build/DerivedData -quiet
+    @for path in build/Clacal.app; do [ ! -e "$path" ] || trash "$path"; done
+    @cp -R build/DerivedData/Build/Products/Release/Clacal.app build/
+    @test -x build/Clacal.app/Contents/MacOS/Clacal
+    @test -x build/Clacal.app/Contents/MacOS/clacal-cli
 
 # Regenerate Xcode project from project.yml
 gen:
@@ -23,7 +27,7 @@ gen:
 
 # Clean build artifacts
 clean:
-    rm -rf build .build
+    @for path in build .build; do [ ! -e "$path" ] || trash "$path"; done
     xcodebuild -project Clacal.xcodeproj -scheme Clacal clean -quiet 2>/dev/null || true
 
 # Run the app
@@ -46,11 +50,14 @@ validate-sweep:
 
 # Clear all data (legacy SQLite + active JSON store)
 clear-db:
-    rm -f ~/.config/clacal/history.db
-    rm -f ~/.config/clacal/history-v2.store
-    rm -f ~/.config/clacal/history-v2.store-shm
-    rm -f ~/.config/clacal/history-v2.store-wal
-    rm -f ~/.config/clacal/usage_data.json
+    @for path in \
+        "$HOME/.config/clacal/history.db" \
+        "$HOME/.config/clacal/history-v2.store" \
+        "$HOME/.config/clacal/history-v2.store-shm" \
+        "$HOME/.config/clacal/history-v2.store-wal" \
+        "$HOME/.config/clacal/usage_data.json"; do \
+        [ ! -e "$path" ] || trash "$path"; \
+    done
 
 # Print version from Info.plist
 version:
@@ -62,7 +69,7 @@ dmg: app-release
     set -euo pipefail
     VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" Info.plist)
     DMG="build/Clacal_${VERSION}.dmg"
-    rm -f "$DMG"
+    if [ -e "$DMG" ]; then trash "$DMG"; fi
     hdiutil create "$DMG" -volname "Clacal" -srcfolder build/Clacal.app -ov -format UDZO
     echo "$DMG"
 
