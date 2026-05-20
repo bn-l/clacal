@@ -101,19 +101,20 @@ enum DataStore {
     }
 
     static func save(_ data: StoreData, to url: URL = defaultURL) {
+        do {
+            try saveThrowing(data, to: url)
+        } catch {
+            logger.error("Failed to save data: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    static func saveThrowing(_ data: StoreData, to url: URL = defaultURL) throws {
         let dir = url.deletingLastPathComponent()
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .secondsSince1970
-        guard let raw = try? encoder.encode(data) else {
-            logger.error("Failed to encode data for save")
-            return
-        }
-        do {
-            try raw.write(to: url, options: .atomic)
-            logger.debug("Data saved: polls=\(data.polls.count, privacy: .public) sessions=\(data.sessions.count, privacy: .public)")
-        } catch {
-            logger.error("Failed to write data: \(error.localizedDescription, privacy: .public)")
-        }
+        let raw = try encoder.encode(data)
+        try raw.write(to: url, options: .atomic)
+        logger.debug("Data saved: polls=\(data.polls.count, privacy: .public) sessions=\(data.sessions.count, privacy: .public)")
     }
 }

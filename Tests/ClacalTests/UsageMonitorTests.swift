@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import Clacal
+@testable import ClacalCore
 
 // MARK: - Session Reset Detection (via Optimiser)
 

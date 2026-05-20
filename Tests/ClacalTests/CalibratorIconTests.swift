@@ -2,6 +2,7 @@ import Testing
 import SwiftUI
 import AppKit
 @testable import Clacal
+@testable import ClacalCore
 
 @Suite("CalibratorIcon")
 struct CalibratorIconTests {

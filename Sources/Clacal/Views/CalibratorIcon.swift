@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import OSLog
+import ClacalCore
 
 private let logger = Logger(subsystem: "com.bml.clacal", category: "CalibratorIcon")
 

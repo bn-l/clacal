@@ -1,5 +1,6 @@
 import Foundation
 @testable import Clacal
+@testable import ClacalCore
 
 enum PacingValidationEnvironment {
     static var outputDirectory: URL? {

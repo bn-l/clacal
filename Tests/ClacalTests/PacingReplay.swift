@@ -1,5 +1,6 @@
 import Foundation
 @testable import Clacal
+@testable import ClacalCore
 
 enum PacingValidationFailureKind: String, Codable, Sendable, CaseIterable {
     case wrongDirectionOnPace

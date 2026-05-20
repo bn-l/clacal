@@ -1,6 +1,7 @@
 import Testing
 import Foundation
 @testable import Clacal
+@testable import ClacalCore
 
 @Suite("AppConfig")
 struct AppConfigTests {

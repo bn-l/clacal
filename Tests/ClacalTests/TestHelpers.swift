@@ -1,5 +1,6 @@
 import Foundation
 @testable import Clacal
+@testable import ClacalCore
 
 /// Create an in-memory UsageOptimiser with no disk persistence.
 @MainActor

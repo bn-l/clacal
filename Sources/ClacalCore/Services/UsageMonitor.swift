@@ -4,12 +4,12 @@ import OSLog
 
 private let logger = Logger(subsystem: "com.bml.clacal", category: "Monitor")
 
-struct AppError: Identifiable, Sendable {
-    let id = UUID()
-    let message: String
-    let timestamp: Date
+public struct AppError: Identifiable, Sendable {
+    public let id = UUID()
+    public let message: String
+    public let timestamp: Date
 
-    init(message: String, timestamp: Date = Date()) {
+    public init(message: String, timestamp: Date = Date()) {
         self.message = message
         self.timestamp = timestamp
     }
@@ -17,18 +17,18 @@ struct AppError: Identifiable, Sendable {
 
 @Observable
 @MainActor
-final class UsageMonitor {
-    var metrics: UsageMetrics? {
+public final class UsageMonitor {
+    public var metrics: UsageMetrics? {
         didSet {
             logger.trace("metrics updated: calibrator=\(self.metrics?.calibrator ?? -99, privacy: .public)")
         }
     }
-    var errors: [AppError] = []
-    var hasError: Bool { !errors.isEmpty }
-    var isLoading = false
-    var lastUpdated: Date?
+    public var errors: [AppError] = []
+    public var hasError: Bool { !errors.isEmpty }
+    public var isLoading = false
+    public var lastUpdated: Date?
     var config = AppConfig.load()
-    var displayMode: MenuBarDisplayMode {
+    public var displayMode: MenuBarDisplayMode {
         get { config.menuBarDisplayMode }
         set {
             config.menuBarDisplayMode = newValue
@@ -40,20 +40,22 @@ final class UsageMonitor {
     // internal(set) for test injection
     var optimiser: UsageOptimiser?
 
-    func computeStats() -> UsageStats? {
+    public init() {}
+
+    public func computeStats() -> UsageStats? {
         optimiser?.computeStats()
     }
 
-    func toggleDisplayMode() {
+    public func toggleDisplayMode() {
         displayMode = displayMode == .calibrator ? .dualBar : .calibrator
     }
 
-    func manualPoll() async {
+    public func manualPoll() async {
         logger.info("Manual poll triggered")
         await poll()
     }
 
-    func startPolling() async {
+    public func startPolling() async {
         logger.info("startPolling: pollInterval=\(self.config.pollIntervalSeconds, privacy: .public)s")
         napActivity = ProcessInfo.processInfo.beginActivity(options: .background, reason: "Periodic API polling")
 
@@ -83,34 +85,22 @@ final class UsageMonitor {
 
         ensureOptimiser()
 
-        let result = optimiser!.recordPoll(
-            sessionUsage: sessionUsagePct,
-            sessionRemaining: sessionMinsLeft,
-            weeklyUsage: weeklyUsagePct,
-            weeklyRemaining: weeklyMinsLeft,
-            weeklyResetAt: weeklyResetAt
-        )
-
-        metrics = UsageMetrics(
+        let snapshot = UsageSnapshotBuilder.make(
             sessionUsagePct: sessionUsagePct,
             weeklyUsagePct: weeklyUsagePct,
             sessionMinsLeft: sessionMinsLeft,
             weeklyMinsLeft: weeklyMinsLeft,
-            calibrator: result.calibrator,
-            sessionTarget: result.target,
-            sessionDeviation: result.sessionDeviation,
-            dailyDeviation: result.dailyDeviation,
-            dailyBudgetRemaining: result.dailyBudgetRemaining,
-            weeklyDeviation: result.weeklyDeviation,
-            sessionElapsedPct: (UsageOptimiser.sessionMinutes - sessionMinsLeft) / UsageOptimiser.sessionMinutes * 100,
-            weeklyElapsedPct: (UsageOptimiser.weekMinutes - weeklyMinsLeft) / UsageOptimiser.weekMinutes * 100,
+            weeklyResetAt: weeklyResetAt,
             isSessionActive: isSessionActive,
-            timestamp: Date()
+            optimiser: optimiser!,
+            now: Date()
         )
-        errors.removeAll()
-        lastUpdated = Date()
 
-        logger.info("Poll complete: calibrator=\(result.calibrator, privacy: .public) target=\(result.target, privacy: .public) optimalRate=\(result.optimalRate, privacy: .public)")
+        metrics = snapshot.metrics
+        errors.removeAll()
+        lastUpdated = snapshot.generatedAt
+
+        logger.info("Poll complete: calibrator=\(snapshot.metrics.calibrator, privacy: .public) target=\(snapshot.metrics.sessionTarget, privacy: .public)")
     }
 
     private func ensureOptimiser() {
@@ -150,16 +140,15 @@ final class UsageMonitor {
             if response.seven_day == nil {
                 logger.warning("API response missing seven_day window — defaulting to 0")
             }
-            let weeklyResetAt = parseISO8601Date(response.seven_day?.resets_at)
-            let sessionMinsLeft = minutesUntil(response.five_hour?.resets_at)
-            processResponse(
-                sessionUsagePct: response.five_hour?.utilization ?? 0,
-                weeklyUsagePct: response.seven_day?.utilization ?? 0,
-                sessionMinsLeft: sessionMinsLeft,
-                weeklyMinsLeft: minutesUntil(response.seven_day?.resets_at),
-                weeklyResetAt: weeklyResetAt,
-                isSessionActive: response.five_hour != nil && sessionMinsLeft > 0
+            ensureOptimiser()
+            let snapshot = UsageSnapshotBuilder.make(
+                response: response,
+                optimiser: optimiser!,
+                now: Date()
             )
+            metrics = snapshot.metrics
+            errors.removeAll()
+            lastUpdated = snapshot.generatedAt
         } catch {
             appendError(error.localizedDescription)
             logger.error("Poll failed: \(error.localizedDescription, privacy: .public)")
@@ -167,36 +156,17 @@ final class UsageMonitor {
     }
 
     func minutesUntil(_ isoString: String?) -> Double {
-        guard let date = parseISO8601Date(isoString), let str = isoString else {
-            return 0
+        let mins = UsageTimeParser.minutesUntil(isoString)
+        if let isoString {
+            logger.trace("minutesUntil: input=\(isoString, privacy: .public) minutes=\(mins, privacy: .public)")
         }
-        let mins = max(date.timeIntervalSinceNow / 60, 0)
-        logger.trace("minutesUntil: input=\(str, privacy: .public) minutes=\(mins, privacy: .public)")
         return mins
-    }
-
-    private func parseISO8601Date(_ isoString: String?) -> Date? {
-        guard let str = isoString else {
-            logger.trace("parseISO8601Date: nil input")
-            return nil
-        }
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
-        if let date = formatter.date(from: str) {
-            return date
-        }
-        formatter.formatOptions = [.withInternetDateTime]
-        if let date = formatter.date(from: str) {
-            return date
-        }
-        logger.warning("Failed to parse ISO8601 date: input=\(str, privacy: .public)")
-        return nil
     }
 }
 
 // MARK: - Config
 
-enum MenuBarDisplayMode: String, Codable, Sendable {
+public enum MenuBarDisplayMode: String, Codable, Sendable {
     case calibrator
     case dualBar
 }

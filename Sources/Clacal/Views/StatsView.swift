@@ -1,4 +1,5 @@
 import SwiftUI
+import ClacalCore
 
 struct StatsView: View {
     let stats: UsageStats

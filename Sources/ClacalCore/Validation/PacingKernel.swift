@@ -148,9 +148,10 @@ enum PacingKernel {
     }
 
     static func sessionTarget(for weeklyDeviation: Double) -> SessionTargetBreakdown {
-        .init(
+        let deviation = abs(weeklyDeviation) < 1e-12 ? 0 : weeklyDeviation
+        return .init(
             weeklyDeviation: weeklyDeviation,
-            target: 100 * max(0.3, min(1, 1 - weeklyDeviation))
+            target: 100 * max(0.3, min(1, 1 - deviation))
         )
     }
 

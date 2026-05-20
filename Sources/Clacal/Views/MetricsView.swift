@@ -1,4 +1,5 @@
 import SwiftUI
+import ClacalCore
 
 struct MetricsView: View {
     let metrics: UsageMetrics

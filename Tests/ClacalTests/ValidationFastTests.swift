@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import Clacal
+@testable import ClacalCore
 
 @Suite("ValidationFast — Kernel")
 struct ValidationFastKernelTests {
