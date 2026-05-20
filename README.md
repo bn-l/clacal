@@ -37,6 +37,12 @@ just run   # build and open the app
 brew install bn-l/tap/clacal
 ```
 
+The Homebrew cask also installs a `clacal` CLI. Run it with no arguments to fetch the latest usage data once and print a Markdown report:
+
+```bash
+clacal
+```
+
 Or build from source:
 
 ```bash
