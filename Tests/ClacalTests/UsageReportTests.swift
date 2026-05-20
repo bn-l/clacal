@@ -53,7 +53,7 @@ struct UsageReportTests {
         #expect(!snapshot.metrics.isSessionActive)
     }
 
-    @Test("Markdown usage output includes current usage and sparse stats")
+    @Test("Markdown usage output includes current usage only by default")
     func markdownUsageOutput() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let snapshot = UsageSnapshotBuilder.make(
@@ -76,8 +76,15 @@ struct UsageReportTests {
 
         #expect(markdown.contains("# Clacal Usage"))
         #expect(markdown.contains("Rate limit tier: `tier_3`"))
-        #expect(markdown.contains("| Session Usage | 25% | 1h 30m left |"))
-        #expect(markdown.contains("| Average session usage | Not enough data |"))
+        #expect(markdown.contains("- Pace:"))
+        #expect(markdown.contains("- Session:"))
+        #expect(markdown.contains("25% used"))
+        #expect(markdown.contains("1h 30m left"))
+        #expect(markdown.contains("- Week:"))
+        #expect(markdown.contains("- Daily budget:"))
+        #expect(!markdown.contains("## Stats"))
+        #expect(!markdown.contains("## Weekly History"))
+        #expect(!markdown.contains("| Metric |"))
     }
 
     @Test("Markdown usage output describes inactive sessions")
@@ -98,7 +105,7 @@ struct UsageReportTests {
 
         let markdown = MarkdownUsageRenderer.usage(snapshot)
 
-        #expect(markdown.contains("| Session | Inactive | No active five-hour window |"))
+        #expect(markdown.contains("- Session: Inactive - no active five-hour window"))
         #expect(!markdown.contains("Rate limit tier:"))
     }
 
@@ -172,7 +179,7 @@ struct UsageReportTests {
         #expect(markdown.contains("Detail: Decode error: data corrupted: bad payload"))
     }
 
-    @Test("Markdown usage output includes available stats history")
+    @Test("Markdown usage output includes stats and history when requested")
     func markdownStatsHistory() {
         let now = Date(timeIntervalSince1970: 1_800_000_000)
         let snapshot = UsageSnapshot(
@@ -205,13 +212,42 @@ struct UsageReportTests {
             generatedAt: now
         )
 
-        let markdown = MarkdownUsageRenderer.usage(snapshot)
+        let markdown = MarkdownUsageRenderer.usage(snapshot, includeStats: true, includeHistory: true)
 
-        #expect(markdown.contains("| Average session usage | 62% |"))
-        #expect(markdown.contains("| Week average active / total | 4.0h / 5.0h per day |"))
+        #expect(markdown.contains("## Stats"))
+        #expect(markdown.contains("- Average session usage: 62%"))
+        #expect(markdown.contains("- Week average active / total: 4.0h / 5.0h per day"))
         #expect(markdown.contains("## Weekly History"))
-        #expect(markdown.contains("| Utilization |"))
-        #expect(markdown.contains("| 74% |"))
+        #expect(markdown.contains("- 2027-01-14: 74% - utilization"))
+        #expect(!markdown.contains("| Utilization |"))
+    }
+
+    @Test("Markdown usage output includes sparse optional sections when requested")
+    func markdownSparseStatsHistory() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let snapshot = UsageSnapshotBuilder.make(
+            response: UsageLimits(
+                five_hour: UsageWindow(
+                    utilization: 25,
+                    resets_at: iso8601(now.addingTimeInterval(90 * 60))
+                ),
+                seven_day: UsageWindow(
+                    utilization: 40,
+                    resets_at: iso8601(now.addingTimeInterval(2 * 24 * 60 * 60))
+                ),
+                rate_limit_tier: nil
+            ),
+            optimiser: UsageOptimiser(),
+            now: now
+        )
+
+        let markdown = MarkdownUsageRenderer.usage(snapshot, includeStats: true, includeHistory: true)
+
+        #expect(markdown.contains("## Stats"))
+        #expect(markdown.contains("- Average session usage: Not enough data"))
+        #expect(markdown.contains("- Today active / total:"))
+        #expect(markdown.contains("## Weekly History"))
+        #expect(markdown.contains("- Weekly history: Not enough data"))
     }
 
     private func iso8601(_ date: Date) -> String {

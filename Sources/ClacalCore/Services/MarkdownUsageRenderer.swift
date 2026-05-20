@@ -1,7 +1,11 @@
 import Foundation
 
 public enum MarkdownUsageRenderer {
-    public static func usage(_ snapshot: UsageSnapshot) -> String {
+    public static func usage(
+        _ snapshot: UsageSnapshot,
+        includeStats: Bool = false,
+        includeHistory: Bool = false
+    ) -> String {
         let metrics = snapshot.metrics
         var lines = [
             "# Clacal Usage",
@@ -17,50 +21,40 @@ public enum MarkdownUsageRenderer {
             "",
             "## Current Usage",
             "",
-            "| Metric | Value | Detail |",
-            "|---|---:|---|",
-            row("Pace", deviation(metrics.calibrator, positive: "Ease off", negative: "Use more"), "Combined calibrator"),
+            bullet(
+                "Pace",
+                deviation(metrics.calibrator, positive: "Ease off", negative: "Use more"),
+                detail: "combined calibrator"
+            ),
         ]
 
         if metrics.isSessionActive {
             lines += [
-                row("Session Pace", deviation(metrics.sessionDeviation, positive: "Ahead", negative: "Behind"), "Target \(wholePercent(metrics.sessionTarget))"),
-                row("Session Usage", wholePercent(metrics.sessionUsagePct), "\(duration(metrics.sessionMinsLeft)) left"),
+                bullet(
+                    "Session",
+                    deviation(metrics.sessionDeviation, positive: "Ahead", negative: "Behind"),
+                    detail: "\(wholePercent(metrics.sessionUsagePct)) used, target \(wholePercent(metrics.sessionTarget)), \(duration(metrics.sessionMinsLeft)) left"
+                ),
             ]
         } else {
-            lines.append(row("Session", "Inactive", "No active five-hour window"))
+            lines.append(bullet("Session", "Inactive", detail: "no active five-hour window"))
         }
 
         lines += [
-            row("Weekly Pace", deviation(metrics.weeklyDeviation, positive: "Ahead", negative: "Behind"), "\(duration(metrics.weeklyMinsLeft)) until reset"),
-            row("Daily Budget", wholePercent(metrics.dailyBudgetRemaining * 100), "Remaining"),
-            row("Weekly Usage", wholePercent(metrics.weeklyUsagePct), "\(wholePercent(metrics.weeklyElapsedPct)) of window elapsed"),
-            "",
-            "## Stats",
-            "",
-            "| Metric | Value |",
-            "|---|---:|",
-            statRow("Average session usage", snapshot.stats.avgSessionUsage.map(wholePercent) ?? "Not enough data"),
-            statRow("Today active / total", hours(snapshot.stats.hoursToday)),
+            bullet(
+                "Week",
+                deviation(metrics.weeklyDeviation, positive: "Ahead", negative: "Behind"),
+                detail: "\(wholePercent(metrics.weeklyUsagePct)) used, \(wholePercent(metrics.weeklyElapsedPct)) elapsed, resets in \(duration(metrics.weeklyMinsLeft))"
+            ),
+            bullet("Daily budget", "\(wholePercent(metrics.dailyBudgetRemaining * 100)) remaining"),
         ]
 
-        if let weekAvg = snapshot.stats.hoursWeekAvg {
-            lines.append(statRow("Week average active / total", "\(hours(weekAvg)) per day"))
+        if includeStats {
+            lines += statsLines(snapshot.stats)
         }
-        if let allTimeAvg = snapshot.stats.hoursAllTimeAvg {
-            lines.append(statRow("All-time average active / total", "\(hours(allTimeAvg)) per day"))
-        }
-        if !snapshot.stats.weeklyHistory.isEmpty {
-            lines += [
-                "",
-                "## Weekly History",
-                "",
-                "| Window End | Utilization |",
-                "|---|---:|",
-            ]
-            lines += snapshot.stats.weeklyHistory.map {
-                "| \(iso8601Date($0.windowEnd)) | \(wholePercent($0.utilization)) |"
-            }
+
+        if includeHistory {
+            lines += historyLines(snapshot.stats.weeklyHistory)
         }
 
         return lines.joined(separator: "\n") + "\n"
@@ -132,12 +126,48 @@ public enum MarkdownUsageRenderer {
         debugDescription.isEmpty ? "" : ": \(debugDescription)"
     }
 
-    private static func row(_ metric: String, _ value: String, _ detail: String) -> String {
-        "| \(metric) | \(value) | \(detail) |"
+    private static func statsLines(_ stats: UsageStats) -> [String] {
+        var lines = [
+            "",
+            "## Stats",
+            "",
+            bullet("Average session usage", stats.avgSessionUsage.map(wholePercent) ?? "Not enough data"),
+            bullet("Today active / total", hours(stats.hoursToday)),
+        ]
+
+        if let weekAvg = stats.hoursWeekAvg {
+            lines.append(bullet("Week average active / total", "\(hours(weekAvg)) per day"))
+        }
+        if let allTimeAvg = stats.hoursAllTimeAvg {
+            lines.append(bullet("All-time average active / total", "\(hours(allTimeAvg)) per day"))
+        }
+
+        return lines
     }
 
-    private static func statRow(_ metric: String, _ value: String) -> String {
-        "| \(metric) | \(value) |"
+    private static func historyLines(_ weeklyHistory: [UsageStats.WeeklyEntry]) -> [String] {
+        var lines = [
+            "",
+            "## Weekly History",
+            "",
+        ]
+
+        guard !weeklyHistory.isEmpty else {
+            lines.append(bullet("Weekly history", "Not enough data"))
+            return lines
+        }
+
+        lines += weeklyHistory.map {
+            bullet(iso8601Date($0.windowEnd), wholePercent($0.utilization), detail: "utilization")
+        }
+        return lines
+    }
+
+    private static func bullet(_ label: String, _ value: String, detail: String? = nil) -> String {
+        if let detail, !detail.isEmpty {
+            return "- \(label): \(value) - \(detail)"
+        }
+        return "- \(label): \(value)"
     }
 
     private static func deviation(_ value: Double, positive: String, negative: String) -> String {
