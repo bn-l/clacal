@@ -7,38 +7,70 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		042DEDD14EC76184E4ED3F0F /* PacingKernel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C90416F2BED35412DFDD9B0 /* PacingKernel.swift */; };
+		03C3EB49659F62242CF51055 /* APIResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8C4E1BAED5452150D070AF03 /* APIResponse.swift */; };
 		04FC62E885928C6C2B7A2094 /* UsageOptimiserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3127192FC87E0B06606CEEE6 /* UsageOptimiserTests.swift */; };
+		068F3D76BBA8AC0ECFF312A5 /* PacingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75440311EF61DA4A8784D595 /* PacingTypes.swift */; };
+		0742B896ED64C230B5573A4E /* UsageMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C0F597F4BED06F9B5DC8C9C /* UsageMetrics.swift */; };
 		08F4F5A5EFAC8A691D8DF935 /* App.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CCD71ED7330EB069039C597 /* App.swift */; };
 		0C52C4C89E74B31855DB288C /* PopoverView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3170DE0E5C75124BF77E887E /* PopoverView.swift */; };
+		0DE239893B7A7276C5EF5C7E /* PacingKernel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DF7923ECE86725DCEDBB88A /* PacingKernel.swift */; };
+		124E2B254C39C0C1C2203910 /* UsageMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71D4887EED753B859B9F0391 /* UsageMonitor.swift */; };
 		19766501DAE1EBD640129476 /* PacingReplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81ECB1EC8FF62B6A5EBA3C3C /* PacingReplay.swift */; };
+		1F4ECE9CFE4423727F6EC825 /* UsageReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A18973A675A9636B064E2C /* UsageReporter.swift */; };
+		2517B19E2AA8FDEB37B9B242 /* ClacalCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 60C5A7E833C6AEFAFE0959C0 /* ClacalCore.framework */; };
 		2D26892514795D410897FCDB /* ColorTierTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2002ACE82DB9689BA1B2407D /* ColorTierTests.swift */; };
-		2E694C12434E8648414E09DE /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91487D437672598E0DB2C66F /* UsageStats.swift */; };
 		2F681409006FDB3BA7C864C5 /* PacingReport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B426A767FB1F4F2E203F4A3 /* PacingReport.swift */; };
 		39DA78D484F8273FA61D0AAB /* MetricsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F810665D1EC0A312806A85D3 /* MetricsView.swift */; };
 		431F1956DF71DEBE3010E141 /* UsageMonitorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4590201816ADAE63E6AC6D7 /* UsageMonitorTests.swift */; };
-		4AE6E4892E200F5E885CAED2 /* CredentialProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56937D2433D794E04FE22322 /* CredentialProvider.swift */; };
-		50513C63B61FAA3AAEF20FDA /* DataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DCEDE9746C552E46734B0B2 /* DataStore.swift */; };
 		50EF117B6CE206E25CE058EE /* CalibratorIconTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EFF56CDAFB0538B585E9A76 /* CalibratorIconTests.swift */; };
 		55563C7EE3FDF1C0AC7254D6 /* AppConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAA58D4B6482A6AC56654838 /* AppConfigTests.swift */; };
-		5784A75DBBB07DAEC3724D9A /* APIResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A4CB112E5BDDDDBCEDB8759 /* APIResponse.swift */; };
 		58FE31B3861CFE2484F77CC3 /* TestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = FAF100BDED247F4C8ECF1D04 /* TestHelpers.swift */; };
+		5D7A7B4154EE97D90A01BB3A /* UsageStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9195C8962F0CEBA2F826403 /* UsageStats.swift */; };
 		62E7D260A55BDAC250D4D40A /* APIResponseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AA7D2E9645E0BCA038319B2 /* APIResponseTests.swift */; };
 		67A59F7C3A9D4DE1FC1B2952 /* ValidationSweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD3FF027F06411EED849C481 /* ValidationSweepTests.swift */; };
 		683DC454AF93AA4A708DF162 /* PacingFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7CA2A9751F1C8E24F35B5C8 /* PacingFixtures.swift */; };
-		7F170FBD843069645DC1569E /* PacingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDFBC21AD2B62F3FB9587910 /* PacingTypes.swift */; };
-		882A9400C0AB729552FDD410 /* UsageMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5CF09CEE70ED9E062906FC4 /* UsageMetrics.swift */; };
+		6AD1379EBA24DC2E714DCE99 /* CLIPackagingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846E88564152E6234F113289 /* CLIPackagingTests.swift */; };
+		74F09B84352846F065469BE9 /* MarkdownUsageRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9795461B3C83F054720F3B2E /* MarkdownUsageRenderer.swift */; };
+		905B33735100FDFEB08A3E38 /* ClacalCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 60C5A7E833C6AEFAFE0959C0 /* ClacalCore.framework */; };
 		9868B95D79D6F5A698D26930 /* ValidationFastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF8F8C7BE7F043F0EAFE942B /* ValidationFastTests.swift */; };
-		9B768FF3001DF22FC52919E1 /* UsageMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACD28A3E8A718E882DA8CE06 /* UsageMonitor.swift */; };
-		B3BF25C42EC5C88FB2F4A5F4 /* UsageAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AC246D7B892822224441836 /* UsageAPIClient.swift */; };
-		B44124AED4F6914D19D6F3C8 /* UsageOptimiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0839B9A1FC776CB1D06FFE26 /* UsageOptimiser.swift */; };
+		9A0B7937BE1BD6CE6A652F64 /* CredentialProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC111AA686ED5DBDB9CB0AB2 /* CredentialProvider.swift */; };
+		9D5E33B4480AB5AEDF4CCE93 /* UsageAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED06697133DB5AEF6BE9D91F /* UsageAPIClient.swift */; };
+		9E56D03F04ABFC8752F307E7 /* UsageOptimiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 373017662CAE76E20D0390C1 /* UsageOptimiser.swift */; };
+		A84A8141B6AF2C931B7753BA /* UsageReportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D187434B3BD88187F2A0F73 /* UsageReportTests.swift */; };
+		A92E287FF09724B875A47D2A /* ClacalCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 60C5A7E833C6AEFAFE0959C0 /* ClacalCore.framework */; };
+		ACB4787A1B0A0B84A8C20640 /* DataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79A5E9FD5BBE5C4039AD1E1 /* DataStore.swift */; };
 		CB1C6F38840AAEBFDA32D681 /* CalibratorIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BD1824155C21EB0C0DF7680 /* CalibratorIcon.swift */; };
+		D4017225C0F5B3EAA8167A9F /* UsageColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 152F8E6667EA5959A5B9EF25 /* UsageColor.swift */; };
 		D86F4775CE13087D3D8546E4 /* PacingSweep.swift in Sources */ = {isa = PBXBuildFile; fileRef = B19BC81EAEF43D264A95E844 /* PacingSweep.swift */; };
 		E6473C2152F0CDC8CBF27837 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EFD4DF48B7484205F85E225 /* StatsView.swift */; };
 		EBFC9C23C809E0D5CA50F629 /* DataStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7B37B6AC5E94776DB385346 /* DataStoreTests.swift */; };
+		F278D352975E50434A352150 /* ArgumentParser in Frameworks */ = {isa = PBXBuildFile; productRef = A3D59050AB11F072E22B0391 /* ArgumentParser */; };
+		FA4504F36AD4A8E57C523BE4 /* ClacalCLI in Embed Dependencies */ = {isa = PBXBuildFile; fileRef = 8F3EF4411FFF123B4F13BF82 /* ClacalCLI */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		FA8316DD8181778C4593E4A8 /* ClacalCLI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52661C049E9879497F625BA1 /* ClacalCLI.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		14289C97C885EFA8AADCF8C1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8AD8E9907FCF6335E536A90B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5ACF55192DA2E24B41A98292;
+			remoteInfo = ClacalCore;
+		};
+		51ADDE40B465F13883D37703 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8AD8E9907FCF6335E536A90B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5ACF55192DA2E24B41A98292;
+			remoteInfo = ClacalCore;
+		};
+		966E98A07ABC650408F88056 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8AD8E9907FCF6335E536A90B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5ACF55192DA2E24B41A98292;
+			remoteInfo = ClacalCore;
+		};
 		CA6696A49B5F1E45781EB6FF /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 8AD8E9907FCF6335E536A90B /* Project object */;
@@ -46,51 +78,114 @@
 			remoteGlobalIDString = 12D4A230C51F4F5684A90739;
 			remoteInfo = Clacal;
 		};
+		E323DE36BAFB2574328E8CB0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 8AD8E9907FCF6335E536A90B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5A18950BB1D4C7651EFC45BF;
+			remoteInfo = ClacalCLI;
+		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		354F9E3D4EE3F9A737D9DBCC /* Embed Dependencies */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 6;
+			files = (
+				FA4504F36AD4A8E57C523BE4 /* ClacalCLI in Embed Dependencies */,
+			);
+			name = "Embed Dependencies";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		0839B9A1FC776CB1D06FFE26 /* UsageOptimiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageOptimiser.swift; sourceTree = "<group>"; };
 		0B426A767FB1F4F2E203F4A3 /* PacingReport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingReport.swift; sourceTree = "<group>"; };
-		1A4CB112E5BDDDDBCEDB8759 /* APIResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponse.swift; sourceTree = "<group>"; };
+		152F8E6667EA5959A5B9EF25 /* UsageColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageColor.swift; sourceTree = "<group>"; };
 		1EFD4DF48B7484205F85E225 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 		2002ACE82DB9689BA1B2407D /* ColorTierTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColorTierTests.swift; sourceTree = "<group>"; };
-		2AC246D7B892822224441836 /* UsageAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageAPIClient.swift; sourceTree = "<group>"; };
 		2EFF56CDAFB0538B585E9A76 /* CalibratorIconTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibratorIconTests.swift; sourceTree = "<group>"; };
 		3127192FC87E0B06606CEEE6 /* UsageOptimiserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageOptimiserTests.swift; sourceTree = "<group>"; };
 		3170DE0E5C75124BF77E887E /* PopoverView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverView.swift; sourceTree = "<group>"; };
-		56937D2433D794E04FE22322 /* CredentialProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialProvider.swift; sourceTree = "<group>"; };
+		373017662CAE76E20D0390C1 /* UsageOptimiser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageOptimiser.swift; sourceTree = "<group>"; };
+		52661C049E9879497F625BA1 /* ClacalCLI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClacalCLI.swift; sourceTree = "<group>"; };
 		5BD1824155C21EB0C0DF7680 /* CalibratorIcon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalibratorIcon.swift; sourceTree = "<group>"; };
-		6C90416F2BED35412DFDD9B0 /* PacingKernel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingKernel.swift; sourceTree = "<group>"; };
+		60C5A7E833C6AEFAFE0959C0 /* ClacalCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = ClacalCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		6C0F597F4BED06F9B5DC8C9C /* UsageMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageMetrics.swift; sourceTree = "<group>"; };
+		71D4887EED753B859B9F0391 /* UsageMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageMonitor.swift; sourceTree = "<group>"; };
+		75440311EF61DA4A8784D595 /* PacingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingTypes.swift; sourceTree = "<group>"; };
 		7CCD71ED7330EB069039C597 /* App.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = App.swift; sourceTree = "<group>"; };
-		7DCEDE9746C552E46734B0B2 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
 		81ECB1EC8FF62B6A5EBA3C3C /* PacingReplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingReplay.swift; sourceTree = "<group>"; };
-		91487D437672598E0DB2C66F /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
+		846E88564152E6234F113289 /* CLIPackagingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CLIPackagingTests.swift; sourceTree = "<group>"; };
+		8C4E1BAED5452150D070AF03 /* APIResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponse.swift; sourceTree = "<group>"; };
+		8D187434B3BD88187F2A0F73 /* UsageReportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReportTests.swift; sourceTree = "<group>"; };
+		8F3EF4411FFF123B4F13BF82 /* ClacalCLI */ = {isa = PBXFileReference; includeInIndex = 0; path = ClacalCLI; sourceTree = BUILT_PRODUCTS_DIR; };
+		9795461B3C83F054720F3B2E /* MarkdownUsageRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownUsageRenderer.swift; sourceTree = "<group>"; };
 		9AA7D2E9645E0BCA038319B2 /* APIResponseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIResponseTests.swift; sourceTree = "<group>"; };
-		ACD28A3E8A718E882DA8CE06 /* UsageMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageMonitor.swift; sourceTree = "<group>"; };
+		9DF7923ECE86725DCEDBB88A /* PacingKernel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingKernel.swift; sourceTree = "<group>"; };
+		A79A5E9FD5BBE5C4039AD1E1 /* DataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStore.swift; sourceTree = "<group>"; };
 		B19BC81EAEF43D264A95E844 /* PacingSweep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingSweep.swift; sourceTree = "<group>"; };
-		B5CF09CEE70ED9E062906FC4 /* UsageMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageMetrics.swift; sourceTree = "<group>"; };
-		BDFBC21AD2B62F3FB9587910 /* PacingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingTypes.swift; sourceTree = "<group>"; };
 		BF222CE0190B432F3737DBB9 /* ClacalTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ClacalTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF8F8C7BE7F043F0EAFE942B /* ValidationFastTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationFastTests.swift; sourceTree = "<group>"; };
 		C4590201816ADAE63E6AC6D7 /* UsageMonitorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageMonitorTests.swift; sourceTree = "<group>"; };
 		C7B37B6AC5E94776DB385346 /* DataStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStoreTests.swift; sourceTree = "<group>"; };
 		C84D10AF4855DE4BD7B4321A /* Clacal.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Clacal.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CD3FF027F06411EED849C481 /* ValidationSweepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ValidationSweepTests.swift; sourceTree = "<group>"; };
+		D2A18973A675A9636B064E2C /* UsageReporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageReporter.swift; sourceTree = "<group>"; };
 		D7CA2A9751F1C8E24F35B5C8 /* PacingFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PacingFixtures.swift; sourceTree = "<group>"; };
 		DAA58D4B6482A6AC56654838 /* AppConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfigTests.swift; sourceTree = "<group>"; };
+		ED06697133DB5AEF6BE9D91F /* UsageAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageAPIClient.swift; sourceTree = "<group>"; };
 		F810665D1EC0A312806A85D3 /* MetricsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsView.swift; sourceTree = "<group>"; };
+		F9195C8962F0CEBA2F826403 /* UsageStats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStats.swift; sourceTree = "<group>"; };
 		FAF100BDED247F4C8ECF1D04 /* TestHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestHelpers.swift; sourceTree = "<group>"; };
+		FC111AA686ED5DBDB9CB0AB2 /* CredentialProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CredentialProvider.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		70A1C77B880630041131F924 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2517B19E2AA8FDEB37B9B242 /* ClacalCore.framework in Frameworks */,
+				F278D352975E50434A352150 /* ArgumentParser in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9512D1A51AADCB819F41D3A3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A92E287FF09724B875A47D2A /* ClacalCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E6E4A08755D930DE3FE4F6F7 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				905B33735100FDFEB08A3E38 /* ClacalCore.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0071D8B5BCDAC1D177EB32DF /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				1A4CB112E5BDDDDBCEDB8759 /* APIResponse.swift */,
-				B5CF09CEE70ED9E062906FC4 /* UsageMetrics.swift */,
-				91487D437672598E0DB2C66F /* UsageStats.swift */,
+				152F8E6667EA5959A5B9EF25 /* UsageColor.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		119101E68E405021C651A217 /* ClacalCLI */ = {
+			isa = PBXGroup;
+			children = (
+				52661C049E9879497F625BA1 /* ClacalCLI.swift */,
+			);
+			path = ClacalCLI;
 			sourceTree = "<group>";
 		};
 		2C563B1D597C36B4341E9807 /* Views */ = {
@@ -104,33 +199,57 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
-		4857E85FFC0B6EC84E9A8167 /* Validation */ = {
+		82CF3506C052D277B464F259 /* Validation */ = {
 			isa = PBXGroup;
 			children = (
-				6C90416F2BED35412DFDD9B0 /* PacingKernel.swift */,
-				BDFBC21AD2B62F3FB9587910 /* PacingTypes.swift */,
+				9DF7923ECE86725DCEDBB88A /* PacingKernel.swift */,
+				75440311EF61DA4A8784D595 /* PacingTypes.swift */,
 			);
 			path = Validation;
+			sourceTree = "<group>";
+		};
+		845CAA09077DC88A1DC090A2 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				FC111AA686ED5DBDB9CB0AB2 /* CredentialProvider.swift */,
+				A79A5E9FD5BBE5C4039AD1E1 /* DataStore.swift */,
+				9795461B3C83F054720F3B2E /* MarkdownUsageRenderer.swift */,
+				ED06697133DB5AEF6BE9D91F /* UsageAPIClient.swift */,
+				71D4887EED753B859B9F0391 /* UsageMonitor.swift */,
+				373017662CAE76E20D0390C1 /* UsageOptimiser.swift */,
+				D2A18973A675A9636B064E2C /* UsageReporter.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 		954796310AAF5BF036832ACE /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				CC99F620557B5B8130F6F7F5 /* Clacal */,
+				119101E68E405021C651A217 /* ClacalCLI */,
+				CB11C979EDB69177438EA21E /* ClacalCore */,
 			);
 			path = Sources;
 			sourceTree = "<group>";
 		};
-		A8D1E6EAE25EE124CBB5744E /* Services */ = {
+		A08BE48D402FFF0B3E9F79B7 /* Models */ = {
 			isa = PBXGroup;
 			children = (
-				56937D2433D794E04FE22322 /* CredentialProvider.swift */,
-				7DCEDE9746C552E46734B0B2 /* DataStore.swift */,
-				2AC246D7B892822224441836 /* UsageAPIClient.swift */,
-				ACD28A3E8A718E882DA8CE06 /* UsageMonitor.swift */,
-				0839B9A1FC776CB1D06FFE26 /* UsageOptimiser.swift */,
+				8C4E1BAED5452150D070AF03 /* APIResponse.swift */,
+				6C0F597F4BED06F9B5DC8C9C /* UsageMetrics.swift */,
+				F9195C8962F0CEBA2F826403 /* UsageStats.swift */,
 			);
-			path = Services;
+			path = Models;
+			sourceTree = "<group>";
+		};
+		CB11C979EDB69177438EA21E /* ClacalCore */ = {
+			isa = PBXGroup;
+			children = (
+				A08BE48D402FFF0B3E9F79B7 /* Models */,
+				845CAA09077DC88A1DC090A2 /* Services */,
+				82CF3506C052D277B464F259 /* Validation */,
+			);
+			path = ClacalCore;
 			sourceTree = "<group>";
 		};
 		CC99F620557B5B8130F6F7F5 /* Clacal */ = {
@@ -138,8 +257,6 @@
 			children = (
 				7CCD71ED7330EB069039C597 /* App.swift */,
 				0071D8B5BCDAC1D177EB32DF /* Models */,
-				A8D1E6EAE25EE124CBB5744E /* Services */,
-				4857E85FFC0B6EC84E9A8167 /* Validation */,
 				2C563B1D597C36B4341E9807 /* Views */,
 			);
 			path = Clacal;
@@ -149,6 +266,8 @@
 			isa = PBXGroup;
 			children = (
 				C84D10AF4855DE4BD7B4321A /* Clacal.app */,
+				8F3EF4411FFF123B4F13BF82 /* ClacalCLI */,
+				60C5A7E833C6AEFAFE0959C0 /* ClacalCore.framework */,
 				BF222CE0190B432F3737DBB9 /* ClacalTests.xctest */,
 			);
 			name = Products;
@@ -160,6 +279,7 @@
 				9AA7D2E9645E0BCA038319B2 /* APIResponseTests.swift */,
 				DAA58D4B6482A6AC56654838 /* AppConfigTests.swift */,
 				2EFF56CDAFB0538B585E9A76 /* CalibratorIconTests.swift */,
+				846E88564152E6234F113289 /* CLIPackagingTests.swift */,
 				2002ACE82DB9689BA1B2407D /* ColorTierTests.swift */,
 				C7B37B6AC5E94776DB385346 /* DataStoreTests.swift */,
 				D7CA2A9751F1C8E24F35B5C8 /* PacingFixtures.swift */,
@@ -169,6 +289,7 @@
 				FAF100BDED247F4C8ECF1D04 /* TestHelpers.swift */,
 				C4590201816ADAE63E6AC6D7 /* UsageMonitorTests.swift */,
 				3127192FC87E0B06606CEEE6 /* UsageOptimiserTests.swift */,
+				8D187434B3BD88187F2A0F73 /* UsageReportTests.swift */,
 				BF8F8C7BE7F043F0EAFE942B /* ValidationFastTests.swift */,
 				CD3FF027F06411EED849C481 /* ValidationSweepTests.swift */,
 			);
@@ -200,10 +321,14 @@
 			buildConfigurationList = F1E203C58C90C6DBEDE1EDEC /* Build configuration list for PBXNativeTarget "Clacal" */;
 			buildPhases = (
 				5577D653E0F3F24D25DCF694 /* Sources */,
+				9512D1A51AADCB819F41D3A3 /* Frameworks */,
+				354F9E3D4EE3F9A737D9DBCC /* Embed Dependencies */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				9D178436F9FB33E11EF29BE0 /* PBXTargetDependency */,
+				2BFD3CCEA96D86C778E561EA /* PBXTargetDependency */,
 			);
 			name = Clacal;
 			packageProductDependencies = (
@@ -212,16 +337,55 @@
 			productReference = C84D10AF4855DE4BD7B4321A /* Clacal.app */;
 			productType = "com.apple.product-type.application";
 		};
+		5A18950BB1D4C7651EFC45BF /* ClacalCLI */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4F60C4870D6807B03B3B13B3 /* Build configuration list for PBXNativeTarget "ClacalCLI" */;
+			buildPhases = (
+				6D89CAD4A6F682E33AECB1C6 /* Sources */,
+				70A1C77B880630041131F924 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				3C2DAC34F38E2B49427319BC /* PBXTargetDependency */,
+			);
+			name = ClacalCLI;
+			packageProductDependencies = (
+				A3D59050AB11F072E22B0391 /* ArgumentParser */,
+			);
+			productName = ClacalCLI;
+			productReference = 8F3EF4411FFF123B4F13BF82 /* ClacalCLI */;
+			productType = "com.apple.product-type.tool";
+		};
+		5ACF55192DA2E24B41A98292 /* ClacalCore */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B5C9CAD6BAEBCC2691AD8F06 /* Build configuration list for PBXNativeTarget "ClacalCore" */;
+			buildPhases = (
+				DB44EF28D748BADFC4764364 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ClacalCore;
+			packageProductDependencies = (
+			);
+			productName = ClacalCore;
+			productReference = 60C5A7E833C6AEFAFE0959C0 /* ClacalCore.framework */;
+			productType = "com.apple.product-type.framework.static";
+		};
 		8A7F720F71AA23E9C8B61A9D /* ClacalTests */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 36EFD4CDCE6BFE385763FEDC /* Build configuration list for PBXNativeTarget "ClacalTests" */;
 			buildPhases = (
 				66642389CEDD2BC101952D93 /* Sources */,
+				E6E4A08755D930DE3FE4F6F7 /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 				99DA044724E16AFD80769E45 /* PBXTargetDependency */,
+				99E8DE8098F0F4E740E08431 /* PBXTargetDependency */,
 			);
 			name = ClacalTests;
 			packageProductDependencies = (
@@ -250,12 +414,17 @@
 			);
 			mainGroup = F2B8DDD1142FEA8D48D4E52C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				63548BCAC90E2F762ABD13C7 /* XCRemoteSwiftPackageReference "swift-argument-parser" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = DB096E59B6DA2F0621C9D42A /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
 				12D4A230C51F4F5684A90739 /* Clacal */,
+				5A18950BB1D4C7651EFC45BF /* ClacalCLI */,
+				5ACF55192DA2E24B41A98292 /* ClacalCore */,
 				8A7F720F71AA23E9C8B61A9D /* ClacalTests */,
 			);
 		};
@@ -266,21 +435,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5784A75DBBB07DAEC3724D9A /* APIResponse.swift in Sources */,
 				08F4F5A5EFAC8A691D8DF935 /* App.swift in Sources */,
 				CB1C6F38840AAEBFDA32D681 /* CalibratorIcon.swift in Sources */,
-				4AE6E4892E200F5E885CAED2 /* CredentialProvider.swift in Sources */,
-				50513C63B61FAA3AAEF20FDA /* DataStore.swift in Sources */,
 				39DA78D484F8273FA61D0AAB /* MetricsView.swift in Sources */,
-				042DEDD14EC76184E4ED3F0F /* PacingKernel.swift in Sources */,
-				7F170FBD843069645DC1569E /* PacingTypes.swift in Sources */,
 				0C52C4C89E74B31855DB288C /* PopoverView.swift in Sources */,
 				E6473C2152F0CDC8CBF27837 /* StatsView.swift in Sources */,
-				B3BF25C42EC5C88FB2F4A5F4 /* UsageAPIClient.swift in Sources */,
-				882A9400C0AB729552FDD410 /* UsageMetrics.swift in Sources */,
-				9B768FF3001DF22FC52919E1 /* UsageMonitor.swift in Sources */,
-				B44124AED4F6914D19D6F3C8 /* UsageOptimiser.swift in Sources */,
-				2E694C12434E8648414E09DE /* UsageStats.swift in Sources */,
+				D4017225C0F5B3EAA8167A9F /* UsageColor.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -290,6 +450,7 @@
 			files = (
 				62E7D260A55BDAC250D4D40A /* APIResponseTests.swift in Sources */,
 				55563C7EE3FDF1C0AC7254D6 /* AppConfigTests.swift in Sources */,
+				6AD1379EBA24DC2E714DCE99 /* CLIPackagingTests.swift in Sources */,
 				50EF117B6CE206E25CE058EE /* CalibratorIconTests.swift in Sources */,
 				2D26892514795D410897FCDB /* ColorTierTests.swift in Sources */,
 				EBFC9C23C809E0D5CA50F629 /* DataStoreTests.swift in Sources */,
@@ -300,18 +461,66 @@
 				58FE31B3861CFE2484F77CC3 /* TestHelpers.swift in Sources */,
 				431F1956DF71DEBE3010E141 /* UsageMonitorTests.swift in Sources */,
 				04FC62E885928C6C2B7A2094 /* UsageOptimiserTests.swift in Sources */,
+				A84A8141B6AF2C931B7753BA /* UsageReportTests.swift in Sources */,
 				9868B95D79D6F5A698D26930 /* ValidationFastTests.swift in Sources */,
 				67A59F7C3A9D4DE1FC1B2952 /* ValidationSweepTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6D89CAD4A6F682E33AECB1C6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FA8316DD8181778C4593E4A8 /* ClacalCLI.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DB44EF28D748BADFC4764364 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				03C3EB49659F62242CF51055 /* APIResponse.swift in Sources */,
+				9A0B7937BE1BD6CE6A652F64 /* CredentialProvider.swift in Sources */,
+				ACB4787A1B0A0B84A8C20640 /* DataStore.swift in Sources */,
+				74F09B84352846F065469BE9 /* MarkdownUsageRenderer.swift in Sources */,
+				0DE239893B7A7276C5EF5C7E /* PacingKernel.swift in Sources */,
+				068F3D76BBA8AC0ECFF312A5 /* PacingTypes.swift in Sources */,
+				9D5E33B4480AB5AEDF4CCE93 /* UsageAPIClient.swift in Sources */,
+				0742B896ED64C230B5573A4E /* UsageMetrics.swift in Sources */,
+				124E2B254C39C0C1C2203910 /* UsageMonitor.swift in Sources */,
+				9E56D03F04ABFC8752F307E7 /* UsageOptimiser.swift in Sources */,
+				1F4ECE9CFE4423727F6EC825 /* UsageReporter.swift in Sources */,
+				5D7A7B4154EE97D90A01BB3A /* UsageStats.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		2BFD3CCEA96D86C778E561EA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5A18950BB1D4C7651EFC45BF /* ClacalCLI */;
+			targetProxy = E323DE36BAFB2574328E8CB0 /* PBXContainerItemProxy */;
+		};
+		3C2DAC34F38E2B49427319BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5ACF55192DA2E24B41A98292 /* ClacalCore */;
+			targetProxy = 14289C97C885EFA8AADCF8C1 /* PBXContainerItemProxy */;
+		};
 		99DA044724E16AFD80769E45 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 12D4A230C51F4F5684A90739 /* Clacal */;
 			targetProxy = CA6696A49B5F1E45781EB6FF /* PBXContainerItemProxy */;
+		};
+		99E8DE8098F0F4E740E08431 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5ACF55192DA2E24B41A98292 /* ClacalCore */;
+			targetProxy = 966E98A07ABC650408F88056 /* PBXContainerItemProxy */;
+		};
+		9D178436F9FB33E11EF29BE0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 5ACF55192DA2E24B41A98292 /* ClacalCore */;
+			targetProxy = 51ADDE40B465F13883D37703 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -372,6 +581,28 @@
 			};
 			name = Release;
 		};
+		2C6B5923C810D1BCC7267B3A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Local Dev Signing";
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bml.clacal.cli;
+				PRODUCT_MODULE_NAME = ClacalCLI;
+				PRODUCT_NAME = "clacal-cli";
+				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 		3D92492CE720DAFB168DEACB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -387,6 +618,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bml.clacal;
+				PRODUCT_MODULE_NAME = Clacal;
 				PRODUCT_NAME = Clacal;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = XCODE_BUILD;
@@ -410,6 +642,7 @@
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.bml.clacal;
+				PRODUCT_MODULE_NAME = Clacal;
 				PRODUCT_NAME = Clacal;
 				SDKROOT = macosx;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = XCODE_BUILD;
@@ -481,6 +714,32 @@
 			};
 			name = Debug;
 		};
+		4AF90174A209A02B6E7C2319 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bml.clacal.core;
+				PRODUCT_NAME = ClacalCore;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
 		7C9E2448EDAC648F2A4AAB09 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -523,6 +782,54 @@
 			};
 			name = Release;
 		};
+		CB845A3F4BF6581300F561D8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "";
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEFINES_MODULE = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				DYLIB_INSTALL_NAME_BASE = "@rpath";
+				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bml.clacal.core;
+				PRODUCT_NAME = ClacalCore;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		EF26498C8FB7144D6F4D4A7C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Local Dev Signing";
+				COMBINE_HIDPI_IMAGES = YES;
+				CREATE_INFOPLIST_SECTION_IN_BINARY = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 15.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.bml.clacal.cli;
+				PRODUCT_MODULE_NAME = ClacalCLI;
+				PRODUCT_NAME = "clacal-cli";
+				SDKROOT = macosx;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -535,11 +842,29 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		4F60C4870D6807B03B3B13B3 /* Build configuration list for PBXNativeTarget "ClacalCLI" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EF26498C8FB7144D6F4D4A7C /* Debug */,
+				2C6B5923C810D1BCC7267B3A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 		B502CBB68BECA3CE559FF60B /* Build configuration list for PBXProject "Clacal" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				4ACE4634C04F32CE0845B718 /* Debug */,
 				1ED8A2EC12EB496CD485CD45 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B5C9CAD6BAEBCC2691AD8F06 /* Build configuration list for PBXNativeTarget "ClacalCore" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4AF90174A209A02B6E7C2319 /* Debug */,
+				CB845A3F4BF6581300F561D8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
@@ -554,6 +879,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		63548BCAC90E2F762ABD13C7 /* XCRemoteSwiftPackageReference "swift-argument-parser" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-argument-parser";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.7.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A3D59050AB11F072E22B0391 /* ArgumentParser */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 63548BCAC90E2F762ABD13C7 /* XCRemoteSwiftPackageReference "swift-argument-parser" */;
+			productName = ArgumentParser;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 8AD8E9907FCF6335E536A90B /* Project object */;
 }

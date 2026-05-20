@@ -7,16 +7,43 @@ options:
   generateEmptyDirectories: false
   createIntermediateGroups: true
 
+packages:
+  swift-argument-parser:
+    url: https://github.com/apple/swift-argument-parser
+    from: 1.7.1
+
 targets:
+  ClacalCore:
+    type: framework.static
+    platform: macOS
+    sources:
+      - path: Sources/ClacalCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bml.clacal.core
+        PRODUCT_NAME: ClacalCore
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+
   Clacal:
     type: application
     platform: macOS
     sources:
       - path: Sources/Clacal
+    dependencies:
+      - target: ClacalCore
+      - target: ClacalCLI
+        embed: true
+        link: false
+        codeSign: true
+        copy:
+          destination: executables
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.bml.clacal
         PRODUCT_NAME: Clacal
+        PRODUCT_MODULE_NAME: Clacal
         SWIFT_VERSION: "6.0"
         MACOSX_DEPLOYMENT_TARGET: "15.0"
         CODE_SIGN_ENTITLEMENTS: Clacal.entitlements
@@ -25,6 +52,28 @@ targets:
         CODE_SIGN_IDENTITY: "Local Dev Signing"
         SWIFT_STRICT_CONCURRENCY: complete
         SWIFT_ACTIVE_COMPILATION_CONDITIONS: XCODE_BUILD
+
+  ClacalCLI:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Sources/ClacalCLI
+    dependencies:
+      - target: ClacalCore
+      - package: swift-argument-parser
+        product: ArgumentParser
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.bml.clacal.cli
+        PRODUCT_NAME: clacal-cli
+        PRODUCT_MODULE_NAME: ClacalCLI
+        SWIFT_VERSION: "6.0"
+        MACOSX_DEPLOYMENT_TARGET: "15.0"
+        GENERATE_INFOPLIST_FILE: YES
+        CREATE_INFOPLIST_SECTION_IN_BINARY: YES
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_IDENTITY: "Local Dev Signing"
+        SWIFT_STRICT_CONCURRENCY: complete
 
   ClacalTests:
     type: bundle.unit-test
@@ -40,12 +89,15 @@ targets:
         CODE_SIGN_IDENTITY: "Local Dev Signing"
     dependencies:
       - target: Clacal
+      - target: ClacalCore
 
 schemes:
   Clacal:
     build:
       targets:
+        ClacalCore: all
         Clacal: all
+        ClacalCLI: all
         ClacalTests: [test]
     run:
       executable: Clacal
