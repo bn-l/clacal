@@ -75,6 +75,7 @@ enum UsageSnapshotBuilder {
         now: Date
     ) -> UsageSnapshot {
         let sessionMinsLeft = UsageTimeParser.minutesUntil(response.five_hour?.resets_at, now: now)
+        let fable = response.fableWeekly
         return make(
             sessionUsagePct: response.five_hour?.utilization ?? 0,
             weeklyUsagePct: response.seven_day?.utilization ?? 0,
@@ -83,6 +84,8 @@ enum UsageSnapshotBuilder {
             weeklyResetAt: UsageTimeParser.parseISO8601Date(response.seven_day?.resets_at),
             isSessionActive: response.five_hour != nil && sessionMinsLeft > 0,
             rateLimitTier: response.rate_limit_tier,
+            fableWeeklyUsagePct: fable?.percent,
+            fableWeeklyMinsLeft: UsageTimeParser.minutesUntil(fable?.resets_at, now: now),
             optimiser: optimiser,
             now: now
         )
@@ -96,6 +99,8 @@ enum UsageSnapshotBuilder {
         weeklyResetAt: Date? = nil,
         isSessionActive: Bool = true,
         rateLimitTier: String? = nil,
+        fableWeeklyUsagePct: Double? = nil,
+        fableWeeklyMinsLeft: Double = 0,
         optimiser: UsageOptimiser,
         now: Date
     ) -> UsageSnapshot {
@@ -121,6 +126,9 @@ enum UsageSnapshotBuilder {
             weeklyDeviation: result.weeklyDeviation,
             sessionElapsedPct: (UsageOptimiser.sessionMinutes - sessionMinsLeft) / UsageOptimiser.sessionMinutes * 100,
             weeklyElapsedPct: (UsageOptimiser.weekMinutes - weeklyMinsLeft) / UsageOptimiser.weekMinutes * 100,
+            fableWeeklyUsagePct: fableWeeklyUsagePct,
+            fableWeeklyMinsLeft: fableWeeklyMinsLeft,
+            fableWeeklyElapsedPct: (UsageOptimiser.weekMinutes - fableWeeklyMinsLeft) / UsageOptimiser.weekMinutes * 100,
             isSessionActive: isSessionActive,
             timestamp: now
         )

@@ -19,7 +19,8 @@ struct UsageReportTests {
                     utilization: 40,
                     resets_at: iso8601(now.addingTimeInterval(2 * 24 * 60 * 60))
                 ),
-                rate_limit_tier: "tier_3"
+                rate_limit_tier: "tier_3",
+                limits: nil
             ),
             optimiser: UsageOptimiser(),
             now: now
@@ -42,7 +43,8 @@ struct UsageReportTests {
                     utilization: 45,
                     resets_at: iso8601(now.addingTimeInterval(24 * 60 * 60))
                 ),
-                rate_limit_tier: nil
+                rate_limit_tier: nil,
+                limits: nil
             ),
             optimiser: UsageOptimiser(),
             now: now
@@ -66,7 +68,8 @@ struct UsageReportTests {
                     utilization: 40,
                     resets_at: iso8601(now.addingTimeInterval(2 * 24 * 60 * 60))
                 ),
-                rate_limit_tier: "tier_3"
+                rate_limit_tier: "tier_3",
+                limits: nil
             ),
             optimiser: UsageOptimiser(),
             now: now
@@ -97,7 +100,8 @@ struct UsageReportTests {
                     utilization: 40,
                     resets_at: iso8601(now.addingTimeInterval(24 * 60 * 60))
                 ),
-                rate_limit_tier: nil
+                rate_limit_tier: nil,
+                limits: nil
             ),
             optimiser: UsageOptimiser(),
             now: now
@@ -147,7 +151,8 @@ struct UsageReportTests {
                             utilization: 40,
                             resets_at: iso8601(now.addingTimeInterval(2 * 24 * 60 * 60))
                         ),
-                        rate_limit_tier: "tier_3"
+                        rate_limit_tier: "tier_3",
+                        limits: nil
                     )
                 },
                 config: AppConfig(),
@@ -196,6 +201,9 @@ struct UsageReportTests {
                 weeklyDeviation: 0,
                 sessionElapsedPct: 70,
                 weeklyElapsedPct: 80,
+                fableWeeklyUsagePct: nil,
+                fableWeeklyMinsLeft: 0,
+                fableWeeklyElapsedPct: 0,
                 isSessionActive: true,
                 timestamp: now
             ),
@@ -235,7 +243,8 @@ struct UsageReportTests {
                     utilization: 40,
                     resets_at: iso8601(now.addingTimeInterval(2 * 24 * 60 * 60))
                 ),
-                rate_limit_tier: nil
+                rate_limit_tier: nil,
+                limits: nil
             ),
             optimiser: UsageOptimiser(),
             now: now

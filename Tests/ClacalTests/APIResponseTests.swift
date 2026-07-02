@@ -68,6 +68,36 @@ struct APIResponseTests {
         #expect(window.resets_at == nil)
     }
 
+    @Test("UsageLimits extracts Fable weekly-scoped limit from limits array")
+    func fableWeeklyScopedLimit() throws {
+        let json = Data("""
+            {
+                "five_hour": {"utilization": 55.0, "resets_at": "2026-07-02T05:19:59.765811+00:00"},
+                "seven_day": {"utilization": 6.0, "resets_at": "2026-07-07T19:59:59.765830+00:00"},
+                "limits": [
+                    {"kind": "session", "group": "session", "percent": 55, "is_active": true},
+                    {"kind": "weekly_all", "group": "weekly", "percent": 6, "is_active": false},
+                    {"kind": "weekly_scoped", "group": "weekly", "percent": 12,
+                     "resets_at": "2026-07-07T19:59:59.766073+00:00",
+                     "scope": {"model": {"id": null, "display_name": "Fable"}, "surface": null},
+                     "is_active": false}
+                ]
+            }
+            """.utf8)
+        let limits = try JSONDecoder().decode(UsageLimits.self, from: json)
+        #expect(limits.fableWeekly?.percent == 12)
+        #expect(limits.fableWeekly?.resets_at == "2026-07-07T19:59:59.766073+00:00")
+    }
+
+    @Test("UsageLimits.fableWeekly is nil when no scoped Fable limit present")
+    func fableWeeklyAbsent() throws {
+        let json = Data("""
+            {"five_hour": null, "seven_day": null}
+            """.utf8)
+        let limits = try JSONDecoder().decode(UsageLimits.self, from: json)
+        #expect(limits.fableWeekly == nil)
+    }
+
     @Test("UsageLimits decodes real API response with null resets_at and unknown fields")
     func realAPIResponseWithNulls() throws {
         let json = Data("""

@@ -49,6 +49,15 @@ struct MetricsView: View {
                 elapsedPct: metrics.weeklyElapsedPct,
                 detail: "\(formatMinutesLong(metrics.weeklyMinsLeft)) until reset"
             )
+
+            if let fableWeeklyUsagePct = metrics.fableWeeklyUsagePct {
+                GaugeRow(
+                    label: "Fable",
+                    value: fableWeeklyUsagePct,
+                    elapsedPct: metrics.fableWeeklyElapsedPct,
+                    detail: "\(formatMinutesLong(metrics.fableWeeklyMinsLeft)) until reset"
+                )
+            }
         }
     }
 

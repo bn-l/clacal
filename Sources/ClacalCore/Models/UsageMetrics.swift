@@ -13,6 +13,9 @@ public struct UsageMetrics: Sendable {
     public let weeklyDeviation: Double
     public let sessionElapsedPct: Double
     public let weeklyElapsedPct: Double
+    public let fableWeeklyUsagePct: Double?
+    public let fableWeeklyMinsLeft: Double
+    public let fableWeeklyElapsedPct: Double
     public let isSessionActive: Bool
     public let timestamp: Date
 }
