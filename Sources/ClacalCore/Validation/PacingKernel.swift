@@ -64,19 +64,18 @@ enum PacingKernel {
         return total
     }
 
+    // DEVLOG: Expected weekly usage is schedule-only. An empirical variant
+    // (median of past weeks' usage at the same weekly slot) was tried and
+    // removed: stale early weeks and shifting reset windows in the history
+    // produced "ahead" readings while usage was behind the clock, and that
+    // cascaded into the session target and calibrator.
     static func weeklyBreakdown(
         current poll: PacingPollSample,
-        history: [PacingPollSample],
-        schedule: PacingScheduleContext,
-        dataWeeks: Double? = nil
+        schedule: PacingScheduleContext
     ) -> WeeklyDeviationBreakdown {
         guard poll.weeklyRemaining > 0 else {
             return .init(
-                source: .schedule,
                 expectedUsage: 0,
-                scheduleExpectedUsage: 0,
-                empiricalExpectedUsage: nil,
-                empiricalDiagnostics: .init(sampleCount: 0, distinctResetBucketCount: 0, bucketMismatch: false, medianUsage: nil),
                 projectedFinalUsage: nil,
                 activeElapsedHours: 0,
                 activeRemainingHours: 0,
@@ -90,22 +89,12 @@ enum PacingKernel {
             )
         }
 
-        let elapsedMinutes = PacingKernelConstants.weekMinutes - poll.weeklyRemaining
         let weekStart = inferredWeekStart(for: poll)
         let weekEnd = poll.timestamp.addingTimeInterval(poll.weeklyRemaining * 60)
         let activeElapsed = activeHoursInRange(from: weekStart, to: poll.timestamp, schedule: schedule)
         let activeRemaining = activeHoursInRange(from: poll.timestamp, to: weekEnd, schedule: schedule)
         let activeTotal = activeElapsed + activeRemaining
-        let scheduleExpected = activeTotal > 0 ? min(100, (activeElapsed / activeTotal) * 100) : 0
-
-        let empirical = weeklyExpectedEmpirical(
-            current: poll,
-            history: history,
-            elapsedMinutes: elapsedMinutes,
-            dataWeeks: dataWeeks ?? inferredDataWeeks(from: history, including: poll)
-        )
-        let expected = empirical?.medianUsage ?? scheduleExpected
-        let source: PacingExpectationSource = empirical == nil ? .schedule : .empirical
+        let expected = activeTotal > 0 ? min(100, (activeElapsed / activeTotal) * 100) : 0
         let remainingFraction = max(poll.weeklyRemaining / PacingKernelConstants.weekMinutes, 0.1)
         let positional = (poll.weeklyUsage - expected) / (100 * remainingFraction)
 
@@ -124,16 +113,7 @@ enum PacingKernel {
         }
 
         return .init(
-            source: source,
             expectedUsage: expected,
-            scheduleExpectedUsage: scheduleExpected,
-            empiricalExpectedUsage: empirical?.medianUsage,
-            empiricalDiagnostics: empirical?.diagnostics ?? .init(
-                sampleCount: 0,
-                distinctResetBucketCount: 0,
-                bucketMismatch: false,
-                medianUsage: nil
-            ),
             projectedFinalUsage: projected,
             activeElapsedHours: activeElapsed,
             activeRemainingHours: activeRemaining,
@@ -489,12 +469,6 @@ enum PacingKernel {
             .sorted { $0.resetAt < $1.resetAt }
     }
 
-    private static func inferredDataWeeks(from history: [PacingPollSample], including current: PacingPollSample) -> Double {
-        let timestamps = (history + [current]).map(\.timestamp).sorted()
-        guard let first = timestamps.first, let last = timestamps.last else { return 0 }
-        return last.timeIntervalSince(first) / 604800
-    }
-
     private static func weeklyProjected(
         current poll: PacingPollSample,
         activeElapsedHours: Double,
@@ -502,45 +476,6 @@ enum PacingKernel {
     ) -> Double? {
         guard activeElapsedHours >= PacingKernelConstants.minActiveHoursForProjection else { return nil }
         return poll.weeklyUsage + (poll.weeklyUsage / activeElapsedHours) * activeRemainingHours
-    }
-
-    private static func weeklyExpectedEmpirical(
-        current poll: PacingPollSample,
-        history: [PacingPollSample],
-        elapsedMinutes: Double,
-        dataWeeks: Double
-    ) -> (medianUsage: Double, diagnostics: EmpiricalExpectationDiagnostics)? {
-        guard dataWeeks >= PacingKernelConstants.empiricalWeeksRequired else { return nil }
-
-        let cutoff = poll.timestamp.addingTimeInterval(-7 * 86400)
-        let samples = history
-            .filter { $0.timestamp < cutoff }
-            .filter { abs((PacingKernelConstants.weekMinutes - $0.weeklyRemaining) - elapsedMinutes) < 15 }
-
-        guard samples.count >= PacingKernelConstants.empiricalMinSamples else { return nil }
-
-        let usages = samples.map(\.weeklyUsage).sorted()
-        let weekSeconds = PacingKernelConstants.weekMinutes * 60
-        let buckets = Set(samples.map {
-            Int(normalizedResetSlot(for: resolvedWeeklyResetAt(for: $0), weekSeconds: weekSeconds)
-                / PacingKernelConstants.empiricalResetBucketWidth)
-        })
-        let median = usages[usages.count / 2]
-
-        return (
-            medianUsage: median,
-            diagnostics: .init(
-                sampleCount: samples.count,
-                distinctResetBucketCount: buckets.count,
-                bucketMismatch: buckets.count > 1,
-                medianUsage: median
-            )
-        )
-    }
-
-    private static func normalizedResetSlot(for resetAt: Date, weekSeconds: Double) -> Double {
-        let raw = resetAt.timeIntervalSince1970.truncatingRemainder(dividingBy: weekSeconds)
-        return raw >= 0 ? raw : raw + weekSeconds
     }
 }
 

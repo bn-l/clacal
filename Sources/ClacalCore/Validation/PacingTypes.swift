@@ -1,10 +1,5 @@
 import Foundation
 
-enum PacingExpectationSource: String, Codable, Sendable {
-    case schedule
-    case empirical
-}
-
 enum PacingZoneState: String, Codable, Sendable {
     case ok
     case fast
@@ -15,9 +10,6 @@ enum PacingKernelConstants {
     static let sessionMinutes: Double = 300
     static let weekMinutes: Double = 10080
     static let minActiveHoursForProjection: Double = 0.5
-    static let empiricalWeeksRequired: Double = 3
-    static let empiricalMinSamples = 5
-    static let empiricalResetBucketWidth: TimeInterval = 3 * 3600
     static let sessionTargetInfluenceGain: Double = 0.35
     static let sessionTargetInfluenceMax: Double = 0.25
     static let sessionDeviationPositionScale: Double = 0.25
@@ -101,19 +93,8 @@ struct PacingDailyActivitySample: Codable, Sendable, Equatable {
     let idleMinutes: Double
 }
 
-struct EmpiricalExpectationDiagnostics: Codable, Sendable, Equatable {
-    let sampleCount: Int
-    let distinctResetBucketCount: Int
-    let bucketMismatch: Bool
-    let medianUsage: Double?
-}
-
 struct WeeklyDeviationBreakdown: Codable, Sendable, Equatable {
-    let source: PacingExpectationSource
     let expectedUsage: Double
-    let scheduleExpectedUsage: Double
-    let empiricalExpectedUsage: Double?
-    let empiricalDiagnostics: EmpiricalExpectationDiagnostics
     let projectedFinalUsage: Double?
     let activeElapsedHours: Double
     let activeRemainingHours: Double

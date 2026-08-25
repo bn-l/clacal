@@ -22,16 +22,9 @@ struct ValidationFastKernelTests {
             weeklyResetAt: resetAt
         )
 
-        let breakdown = PacingKernel.weeklyBreakdown(
-            current: poll,
-            history: [],
-            schedule: schedule,
-            dataWeeks: 0
-        )
+        let breakdown = PacingKernel.weeklyBreakdown(current: poll, schedule: schedule)
 
-        #expect(breakdown.source == .schedule)
         #expect(approxEqual(breakdown.expectedUsage, 50))
-        #expect(approxEqual(breakdown.scheduleExpectedUsage, 50))
         #expect(approxEqual(breakdown.projectedFinalUsage ?? 0, 100))
         #expect(approxEqual(breakdown.activeElapsedHours, 84))
         #expect(approxEqual(breakdown.activeTotalHours, 168))
@@ -116,14 +109,16 @@ struct ValidationFastReplayTests {
         #expect(results.filter { !$0.matchesExpectation }.isEmpty)
     }
 
-    @Test("Schedule source is used before empirical history threshold")
-    func noEmpiricalBeforeThreshold() throws {
-        let fixture = try #require(PacingFixtureLibrary.fixture(named: "no_empirical_before_three_weeks"))
+    @Test("Stale history at the same weekly slot cannot flip a behind week to ahead")
+    func staleHistoryDoesNotFlipWeeklyPace() throws {
+        let fixture = try #require(PacingFixtureLibrary.fixture(named: "stale_history_behind_near_week_end"))
         let result = PacingReplayRunner.run(fixture)
         let final = try #require(result.observations.last)
 
-        #expect(final.debug.weekly.source == .schedule)
         #expect(result.matchesExpectation)
+        #expect(final.weeklyDeviation < -0.5)
+        #expect(approxEqual(final.target, 100))
+        #expect(final.debug.weekly.expectedUsage > final.weeklyUsage)
     }
 
     @Test("Reset bridge fixture retains the completed 97 percent week")
@@ -137,16 +132,14 @@ struct ValidationFastReplayTests {
         #expect(abs(first.windowEnd.timeIntervalSince(validationDate(2026, 3, 29, 20, 0, timeZone: TimeZone(identifier: "Australia/Sydney")!))) <= 60)
     }
 
-    @Test("Known-bad empirical poisoning is detected")
-    func empiricalPoisoningIsDetected() throws {
-        let fixture = try #require(PacingFixtureLibrary.fixture(named: "empirical_poisoning_near_week_end_detection"))
+    @Test("Mixed reset-window history leaves an on-pace poll on pace")
+    func mixedResetHistoryDoesNotPoisonWeeklyPace() throws {
+        let fixture = try #require(PacingFixtureLibrary.fixture(named: "mixed_reset_history_does_not_poison_weekly_pace"))
         let result = PacingReplayRunner.run(fixture)
         let final = try #require(result.observations.last)
 
-        #expect(result.failureKinds == [.empiricalResetBucketMismatch, .wrongDirectionOnPace])
-        #expect(final.debug.weekly.source == .empirical)
-        #expect(final.weeklyDeviation > 0.9)
         #expect(result.matchesExpectation)
+        #expect(abs(final.weeklyDeviation) < 0.25)
     }
 }
 

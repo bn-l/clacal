@@ -197,12 +197,7 @@ final class UsageOptimiser {
     private func decisionBreakdown(for poll: Poll, currentRate: Double?) -> PacingDecisionBreakdown {
         let pollSample = poll.pacingSample
         let schedule = scheduleContext()
-        let weekly = PacingKernel.weeklyBreakdown(
-            current: pollSample,
-            history: Array(polls.dropLast().map(\.pacingSample)),
-            schedule: schedule,
-            dataWeeks: dataWeeks()
-        )
+        let weekly = PacingKernel.weeklyBreakdown(current: pollSample, schedule: schedule)
         let sessionTarget = PacingKernel.sessionTarget(for: weekly.finalDeviation)
         let remainingActiveHours = PacingKernel.activeHoursInRange(
             from: poll.timestamp,
@@ -555,11 +550,6 @@ final class UsageOptimiser {
     }
 
     // MARK: - Persistence & Housekeeping
-
-    private func dataWeeks() -> Double {
-        guard let first = polls.first, let last = polls.last else { return 0 }
-        return last.timestamp.timeIntervalSince(first.timestamp) / 604800
-    }
 
     private func pruneOldRecords() {
         guard let latest = polls.last else { return }

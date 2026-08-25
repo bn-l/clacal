@@ -11,8 +11,8 @@ enum PacingFixtureLibrary {
             midWeekZeroRecoveryDoesNotCreateWeek(),
             resetDeadlineShiftedWindowsStayStable(),
             dstCrossingHistoryAndSchedule(),
-            noEmpiricalBeforeThreeWeeks(),
-            empiricalPoisoningNearWeekEndDetection(),
+            mixedResetHistoryDoesNotPoisonWeeklyPace(),
+            staleHistoryBehindNearWeekEnd(),
             allDayScheduleDriftStillTracksHistory(),
             restartSparsePollingRestoresState(),
         ]
@@ -34,7 +34,7 @@ enum PacingFixtureLibrary {
 
         return .init(
             name: "on_pace_near_week_end",
-            description: "On-pace weekly usage near the end of a week with no empirical branch available.",
+            description: "On-pace weekly usage near the end of a week with no history.",
             tags: ["fast", "weekly", "on-pace"],
             schedule: schedule,
             initialData: StoreData(),
@@ -231,38 +231,7 @@ enum PacingFixtureLibrary {
         )
     }
 
-    private static func noEmpiricalBeforeThreeWeeks() -> PacingValidationFixture {
-        let tz = timeZone("UTC")
-        let schedule = workdaySchedule(timeZone: tz, startHour: 9, endHour: 19)
-        let resetAt1 = date(2026, 3, 15, 12, 0, timeZone: tz)
-        let resetAt2 = date(2026, 3, 22, 12, 0, timeZone: tz)
-        let resetAt3 = date(2026, 3, 29, 12, 0, timeZone: tz)
-
-        let initialPolls = completedWeekSegment(windowEnd: resetAt1, utilization: 38, timeZone: tz)
-            + completedWeekSegment(windowEnd: resetAt2, utilization: 44, timeZone: tz)
-        let steps = [
-            step(at: date(2026, 3, 27, 12, 0, timeZone: tz), sessionUsage: 20, sessionRemaining: 210, weeklyUsage: 71, resetAt: resetAt3, label: "pre-empirical-threshold"),
-        ]
-
-        return .init(
-            name: "no_empirical_before_three_weeks",
-            description: "Empirical weekly expectation must stay disabled until there is enough history span.",
-            tags: ["fast", "weekly", "empirical"],
-            schedule: schedule,
-            initialData: storeData(polls: initialPolls, sessionStartIndices: [0, 3]),
-            steps: steps,
-            evaluationDate: nil,
-            expectedOutcome: .pass,
-            expectedWeeklyHistory: [
-                .init(windowEnd: resetAt2, utilization: 44),
-                .init(windowEnd: resetAt1, utilization: 38),
-            ],
-            onPaceTolerance: nil,
-            onPaceDeviationLimit: nil
-        )
-    }
-
-    private static func empiricalPoisoningNearWeekEndDetection() -> PacingValidationFixture {
+    private static func mixedResetHistoryDoesNotPoisonWeeklyPace() -> PacingValidationFixture {
         let tz = timeZone("Australia/Sydney")
         let schedule = allDaySchedule(timeZone: tz)
         let currentReset = date(2026, 4, 7, 16, 0, timeZone: tz)
@@ -289,21 +258,71 @@ enum PacingFixtureLibrary {
         }
 
         let steps = [
-            step(at: currentPoll, sessionUsage: 10, sessionRemaining: 112, weeklyUsage: 86, resetAt: currentReset, label: "on-pace-but-poisoned"),
+            step(at: currentPoll, sessionUsage: 10, sessionRemaining: 112, weeklyUsage: 86, resetAt: currentReset, label: "on-pace-with-mixed-history"),
         ]
 
         return .init(
-            name: "empirical_poisoning_near_week_end_detection",
-            description: "Empirical history poisoning should be detected when it creates absurd weekly pace advice near week end.",
-            tags: ["fast", "weekly", "empirical", "known-bad"],
+            name: "mixed_reset_history_does_not_poison_weekly_pace",
+            description: "Same-slot history from shifting reset windows must not push an on-pace poll off pace near week end.",
+            tags: ["fast", "weekly", "history"],
             schedule: schedule,
             initialData: storeData(polls: initialPolls, sessionStartIndices: strideIndices(count: initialPolls.count, step: 2)),
             steps: steps,
             evaluationDate: nil,
-            expectedOutcome: .detect([.empiricalResetBucketMismatch, .wrongDirectionOnPace]),
+            expectedOutcome: .pass,
             expectedWeeklyHistory: [],
             onPaceTolerance: 2.0,
             onPaceDeviationLimit: 0.25
+        )
+    }
+
+    private static func staleHistoryBehindNearWeekEnd() -> PacingValidationFixture {
+        let tz = timeZone("Australia/Sydney")
+        let schedule = allDaySchedule(timeZone: tz)
+        let currentReset = date(2026, 8, 26, 7, 0, timeZone: tz)
+        let currentPoll = date(2026, 8, 25, 16, 7, timeZone: tz)
+        let currentRemaining = minutesUntil(currentReset, from: currentPoll)
+
+        // Real-world shape: early low-usage weeks, a few samples from a
+        // different reset window, and recent weeks below the current one.
+        let historicalWeeks: [(windowEnd: Date, usage: Double)] = [
+            (date(2026, 6, 3, 6, 0, timeZone: tz), 4),
+            (date(2026, 6, 10, 6, 0, timeZone: tz), 13),
+            (date(2026, 6, 17, 6, 0, timeZone: tz), 43),
+            (date(2026, 6, 24, 6, 0, timeZone: tz), 45),
+            (date(2026, 7, 11, 14, 0, timeZone: tz), 9),
+            (date(2026, 7, 15, 6, 0, timeZone: tz), 35),
+            (date(2026, 7, 29, 6, 0, timeZone: tz), 65),
+            (date(2026, 8, 1, 14, 0, timeZone: tz), 100),
+            (date(2026, 8, 8, 14, 0, timeZone: tz), 72),
+            (date(2026, 8, 12, 7, 0, timeZone: tz), 68),
+            (date(2026, 8, 19, 7, 0, timeZone: tz), 64),
+        ]
+
+        let initialPolls = historicalWeeks.flatMap { week in
+            let sampleTime = week.windowEnd.addingTimeInterval(-currentRemaining * 60)
+            return [
+                poll(at: sampleTime.addingTimeInterval(-300), sessionUsage: 12, sessionRemaining: 150, weeklyUsage: max(week.usage - 1, 0), weeklyRemaining: currentRemaining + 5, weeklyResetAt: week.windowEnd),
+                poll(at: sampleTime, sessionUsage: 12, sessionRemaining: 145, weeklyUsage: week.usage, weeklyRemaining: currentRemaining, weeklyResetAt: week.windowEnd),
+            ]
+        }
+
+        let steps = [
+            step(at: currentPoll, sessionUsage: 14, sessionRemaining: 143, weeklyUsage: 76, resetAt: currentReset, label: "behind-with-stale-history"),
+        ]
+
+        return .init(
+            name: "stale_history_behind_near_week_end",
+            description: "Usage behind the clock near week end must read as behind no matter what earlier weeks looked like at the same slot.",
+            tags: ["fast", "weekly", "history"],
+            schedule: schedule,
+            initialData: storeData(polls: initialPolls, sessionStartIndices: strideIndices(count: initialPolls.count, step: 2)),
+            steps: steps,
+            evaluationDate: nil,
+            expectedOutcome: .pass,
+            expectedWeeklyHistory: [],
+            onPaceTolerance: nil,
+            onPaceDeviationLimit: nil
         )
     }
 

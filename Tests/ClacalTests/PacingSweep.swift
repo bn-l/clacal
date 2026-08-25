@@ -28,18 +28,11 @@ enum PacingLearningProfile: String, Codable, Sendable, CaseIterable {
     case learnedAllDay
 }
 
-enum PacingEmpiricalProfile: String, Codable, Sendable, CaseIterable {
-    case none
-    case aligned
-    case poisoned
-}
-
 struct PacingSweepScenarioDescriptor: Codable, Sendable {
     let usage: PacingUsageProfile
     let artifact: PacingArtifactProfile
     let cadence: PacingCadenceProfile
     let learning: PacingLearningProfile
-    let empirical: PacingEmpiricalProfile
     let timeZoneIdentifier: String
 }
 
@@ -63,20 +56,17 @@ enum PacingSweepRunner {
             PacingUsageProfile.allCases.flatMap { usage in
                 PacingArtifactProfile.allCases.flatMap { artifact in
                     PacingCadenceProfile.allCases.flatMap { cadence in
-                        PacingLearningProfile.allCases.flatMap { learning in
-                            PacingEmpiricalProfile.allCases.map { empirical in
-                                makeScenario(
-                                    descriptor: .init(
-                                        usage: usage,
-                                        artifact: artifact,
-                                        cadence: cadence,
-                                        learning: learning,
-                                        empirical: empirical,
-                                        timeZoneIdentifier: timeZone.identifier
-                                    ),
-                                    seed: seed
-                                )
-                            }
+                        PacingLearningProfile.allCases.map { learning in
+                            makeScenario(
+                                descriptor: .init(
+                                    usage: usage,
+                                    artifact: artifact,
+                                    cadence: cadence,
+                                    learning: learning,
+                                    timeZoneIdentifier: timeZone.identifier
+                                ),
+                                seed: seed
+                            )
                         }
                     }
                 }
@@ -156,36 +146,16 @@ enum PacingSweepRunner {
             )
         }
 
-        let historicalWeeks = descriptor.empirical == .none ? 2 : 5
+        let historicalWeeks = 5
         var historyPolls: [Poll] = []
         var sessionStartIndices: [Int] = []
         var expectedWeeklyHistory: [PacingHistoryExpectation] = []
-        let empiricalReferenceTime = stepTimes.last ?? weekStart.addingTimeInterval(PacingKernelConstants.weekMinutes * 60 * 0.87)
-        let empiricalReferenceRemaining = max(currentResetAt.timeIntervalSince(empiricalReferenceTime) / 60, 0)
 
         for weekIndex in 1...historicalWeeks {
             let resetAt = shiftedReset(base: baseResetAt, descriptor: descriptor, weekIndex: weekIndex)
             let utilization = historicalUtilization(profile: descriptor, weekIndex: weekIndex)
             sessionStartIndices.append(historyPolls.count)
             historyPolls += completedWeekSegment(windowEnd: resetAt, utilization: utilization, schedule: schedule)
-            if descriptor.empirical != .none {
-                let probeUsage = switch descriptor.empirical {
-                case .none, .aligned:
-                    utilization
-                case .poisoned:
-                    max(utilization - 18, 0)
-                }
-                historyPolls.append(
-                    Poll(
-                        timestamp: resetAt.addingTimeInterval(-empiricalReferenceRemaining * 60),
-                        sessionUsage: 32,
-                        sessionRemaining: 95,
-                        weeklyUsage: probeUsage,
-                        weeklyRemaining: empiricalReferenceRemaining,
-                        weeklyResetAt: resetAt
-                    )
-                )
-            }
             expectedWeeklyHistory.append(.init(windowEnd: resetAt, utilization: utilization))
         }
 
@@ -255,7 +225,7 @@ enum PacingSweepRunner {
         expectedWeeklyHistory.sort { $0.windowEnd > $1.windowEnd }
 
         return .init(
-            name: "sweep_\(descriptor.timeZoneIdentifier.replacingOccurrences(of: "/", with: "_"))_\(descriptor.usage.rawValue)_\(descriptor.artifact.rawValue)_\(descriptor.cadence.rawValue)_\(descriptor.learning.rawValue)_\(descriptor.empirical.rawValue)",
+            name: "sweep_\(descriptor.timeZoneIdentifier.replacingOccurrences(of: "/", with: "_"))_\(descriptor.usage.rawValue)_\(descriptor.artifact.rawValue)_\(descriptor.cadence.rawValue)_\(descriptor.learning.rawValue)",
             description: "Generated sweep scenario for \(descriptor.timeZoneIdentifier) / \(descriptor.usage.rawValue) / \(descriptor.artifact.rawValue).",
             tags: ["sweep", descriptor.usage.rawValue, descriptor.artifact.rawValue, descriptor.timeZoneIdentifier],
             schedule: schedule,
@@ -299,7 +269,6 @@ enum PacingSweepRunner {
             descriptor.artifact.rawValue,
             descriptor.cadence.rawValue,
             descriptor.learning.rawValue,
-            descriptor.empirical.rawValue,
             descriptor.timeZoneIdentifier,
         ]
         .joined(separator: "|")
@@ -313,16 +282,11 @@ enum PacingSweepRunner {
         profile descriptor: PacingSweepScenarioDescriptor,
         weekIndex: Int
     ) -> Double {
-        switch descriptor.empirical {
-        case .none, .aligned:
-            return switch descriptor.usage {
-            case .onPace: 82 + Double(weekIndex % 2)
-            case .frontLoaded: 90 - Double(weekIndex)
-            case .lateBurst: 68 + Double(weekIndex)
-            case .bursty: 74 + Double((weekIndex * 3) % 9)
-            }
-        case .poisoned:
-            return 58 + Double(weekIndex)
+        switch descriptor.usage {
+        case .onPace: 82 + Double(weekIndex % 2)
+        case .frontLoaded: 90 - Double(weekIndex)
+        case .lateBurst: 68 + Double(weekIndex)
+        case .bursty: 74 + Double((weekIndex * 3) % 9)
         }
     }
 

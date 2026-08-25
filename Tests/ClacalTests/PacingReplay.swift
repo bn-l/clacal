@@ -8,7 +8,6 @@ enum PacingValidationFailureKind: String, Codable, Sendable, CaseIterable {
     case completedWeekDropped
     case completedWeekDuplicated
     case transientArtifactCreatedWeek
-    case empiricalResetBucketMismatch
     case statsWindowEndMismatch
 }
 
@@ -215,21 +214,9 @@ enum PacingReplayRunner {
                 )
             }
 
-            if observation.debug.weekly.source == .empirical,
-               observation.debug.weekly.empiricalDiagnostics.bucketMismatch {
-                failures.append(
-                    .init(
-                        kind: .empiricalResetBucketMismatch,
-                        message: "Empirical expectation mixed reset buckets at step \(observation.stepIndex)",
-                        stepIndex: observation.stepIndex,
-                        timestamp: observation.timestamp
-                    )
-                )
-            }
-
             if let tolerance = fixture.onPaceTolerance,
                let deviationLimit = fixture.onPaceDeviationLimit {
-                let scheduleGap = observation.weeklyUsage - observation.debug.weekly.scheduleExpectedUsage
+                let scheduleGap = observation.weeklyUsage - observation.debug.weekly.expectedUsage
                 if abs(scheduleGap) <= tolerance, abs(observation.weeklyDeviation) > deviationLimit {
                     failures.append(
                         .init(
