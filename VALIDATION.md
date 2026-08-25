@@ -13,7 +13,7 @@ This repo now has a Swift-canonical pacing validation suite. The source of truth
 - `PacingFixtures.swift`
   - Hand-authored regression fixtures for the real failure classes seen so far.
 - `PacingSweep.swift`
-  - Generated matrix over usage profile, artifact profile, cadence, learned schedule shape, empirical-history mode, and timezone.
+  - Generated matrix over usage profile, artifact profile, cadence, learned schedule shape, and timezone.
 - `PacingReport.swift`
   - Writes markdown summaries plus JSON payloads for replay and sweep runs.
 

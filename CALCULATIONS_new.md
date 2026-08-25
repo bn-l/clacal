@@ -16,7 +16,7 @@ Anthropic API                           JSON Store (usage_data.json)
 |                  UsageOptimiser.recordPoll                 |
 |                                                            |
 |  Stage 1: weeklyDeviation ───────────────────────┐          |
-|    weeklyExpected  (empirical or schedule-based) |         |
+|    weeklyExpected  (schedule-based)              |         |
 |    weeklyProjected (velocity extrapolation)      |         |
 |                                    ┌─────────────┘         |
 |                                    v                       |
@@ -70,30 +70,17 @@ Produces a value in **[-1, 1]** via `tanh` compression. Positive = ahead (should
 
 ### Expected Usage
 
-What `weeklyUsage` _should_ be at the current elapsed point in the week:
+What `weeklyUsage` _should_ be at the current point in the week, given the active-hours schedule:
 
 ```
-elapsedMinutes = weekMinutes - weeklyRemaining
-```
-
-**Empirical path** (preferred, requires 3+ weeks of data):
-
-```
-candidates = historical polls where:
-  - poll is older than 7 days (excludes current week)
-  - |elapsed(poll) - elapsedMinutes| < 15 min
-expected = median(candidates.weeklyUsage)        // needs >= 5 samples
-```
-
-**Schedule-based fallback**:
-
-```
-weekStart   = now - elapsedMinutes
-weekEnd     = now + weeklyRemaining
+weekStart     = weeklyResetAt - weekMinutes
+weekEnd       = now + weeklyRemaining
 activeElapsed = activeHoursInRange(weekStart, now)
 activeTotal   = activeHoursInRange(weekStart, weekEnd)
 expected      = min(100, activeElapsed / activeTotal * 100)
 ```
+
+This is deliberately schedule-only. An earlier "empirical" variant used the median of past weeks' usage at the same weekly slot. With stale early weeks and shifting reset windows in the history it reported "Ahead +100%" while usage was behind the clock, and that number cascaded into the session target (floored to 30%) and the calibrator ("Ease off"). Pace is about the clock, not about habit.
 
 ### Projected End-of-Week Usage
 
@@ -350,7 +337,7 @@ The color is symmetric — consuming too fast and too slowly both shift toward r
 | Output | Utilization % (0–100) | Calibrator signal (-1 to +1) |
 | Approach | Two parallel paths, take max | Four-stage pipeline |
 | Velocity | Not tracked | EWMA-smoothed consumption rate |
-| Weekly model | Snapshot at session start | Continuous empirical + schedule-based expected curve |
+| Weekly model | Snapshot at session start | Continuous schedule-based expected curve |
 | Session target | Always 100% | Dynamically lowered by weekly deviation |
 | Budget constraint | Per-session allotment from remaining days | Exchange-rate-derived budget per remaining active session |
 | Active hours | Not modeled | Per-weekday windows, auto-detected from history |
